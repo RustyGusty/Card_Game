@@ -38,7 +38,6 @@ public class App extends PApplet {
     /** Index of the card back in imageList */
     public int cardBackIndex;
 
-    public List<CardRectangle> rectList = new ArrayList<CardRectangle>();
     public Player thisPlayer;
     public List<Player> playerList = new ArrayList<Player>();
 
@@ -93,12 +92,12 @@ public class App extends PApplet {
         thisPlayerNumber = 0;
         thisPlayer = new Player(host, numPlayers++);
         playerList.add(thisPlayer);
-        loadGame(game);
+        queueGame(game);
         queuedGameHandler.initializeDeck();
         minPlayerCount = queuedGameHandler.minPlayerCount;
     }
 
-    public void loadGame(String game) {
+    public void queueGame(String game) {
         switch(game){
             case "pontinho":
                 queuedGameHandler = new PontinhoHandler(this);
@@ -118,7 +117,7 @@ public class App extends PApplet {
     }
 
     public boolean waitingForGame() {
-        return queuedGameHandler != null;
+        return queuedGameHandler == null;
     }
 
     public void startGame(String startingDeck) {
@@ -198,15 +197,36 @@ public class App extends PApplet {
 
     public void makePlayerList(String stringList, String user) {
         String[] playerNames = stringList.split("\n");
-        for(int i = 0; i < playerNames.length; i++) {
-            String name = playerNames[i].substring(7);
+        numPlayers = playerNames.length;
+        for(int i = 0; i < numPlayers; i++) {
+            String name = playerNames[i].substring(10);
             playerList.add(new Player(name, i));
             if(playerList.get(i).isPlayer(user)) {
                 thisPlayerNumber = i;
                 thisPlayer = playerList.get(i);
             }
         }
-        
     }
+
+    public boolean removePlayer(String name) {
+        for(int i = 0; i < numPlayers; i++) 
+            if(playerList.get(i).isPlayer(name)) {
+                playerList.remove(i);
+                return true;
+            }
+        return false;
+    }
+
+    public void reset() {
+        curGameHandler = new HomePage(this);
+        queuedGameHandler = null;
+        numPlayers = 0;
+        thisPlayerNumber = -1;
+        thisPlayer = null;
+        playerList = new ArrayList<Player>();
+        noLoop();
+    }
+
+    
 }
 

@@ -111,7 +111,7 @@ public class PontinhoHandler extends DeckHandler {
 
     @Override
     public void initializeDeck(String startingDeck) {
-        if(startingDeck == null) {
+        if(this.startingDeck == null) {
             this.startingDeck = startingDeck;
             drawRect = new CardRectangle(0.5f, 0.2f, 1, decodeStartingDeck(startingDeck), Mode.FLIPPED_SINGLE);
         }

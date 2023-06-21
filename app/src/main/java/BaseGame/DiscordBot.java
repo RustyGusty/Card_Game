@@ -45,7 +45,8 @@ public class DiscordBot extends ListenerAdapter{
 
             jda.updateCommands().addCommands(
                 Commands.slash("host_pontinho", "Host a game of Pontinho"),
-                Commands.slash("start_game", "Start the game as the host")
+                Commands.slash("start_game", "Start the game as the host"),
+                Commands.slash("reset", "Cancels all hosted and queued games")
                 ).queue();
 
             jda.awaitReady();
@@ -64,7 +65,6 @@ public class DiscordBot extends ListenerAdapter{
         User author = event.getAuthor();
         String message = event.getMessage().getContentRaw();
         if(author.isBot()) {
-            System.out.println(message);
             if(message.startsWith("Next turn:")) {
                 makeMove(message);
             } else if(message.startsWith("A game has been started by")) {
@@ -75,11 +75,9 @@ public class DiscordBot extends ListenerAdapter{
     }
 
     private void startNonHostGame(String message) {
-        if(app.curPlayerNumber == -1) {
-            for(int i = 0; i < 2; i++)
-                message = message.substring(message.indexOf("\n"));
+        if(app.thisPlayerNumber == -1) {
+            message = message.substring(message.indexOf("\n") + 1);
             String args[] = message.split("\n\n");
-            System.out.println(args);
             app.makePlayerList(args[0], user);
             String initialDeck = args[1].substring(args[1].indexOf(":"));
             initialDeck = initialDeck.substring(2);
@@ -102,7 +100,7 @@ public class DiscordBot extends ListenerAdapter{
             if(event.getUser().getName().equals(user)){
                 if(app.waitingForGame()) {
                     currentGame = args[1];
-                    app.loadGame(currentGame);
+                    app.queueGame(currentGame);
                 }
             }
             return;
@@ -118,7 +116,10 @@ public class DiscordBot extends ListenerAdapter{
                 hostGame(event, "pontinho");
                 break;
             case "start_game":
-                startGame(event);
+                startHostGame(event);
+                break;
+            case "reset":
+                reset(event);
                 break;
         }
     }
@@ -128,9 +129,9 @@ public class DiscordBot extends ListenerAdapter{
      * and the starting deck to everyone
      * @param event
      */
-    private void startGame(SlashCommandInteractionEvent event) {
+    private void startHostGame(SlashCommandInteractionEvent event) {
         if(event.getUser().getName().equals(user)) {
-            if(app.thisPlayerNumber != 0) {
+            if(!isHost()) {
                 event.reply("You are not a host!").setEphemeral(true).queue();
                 return;
             }
@@ -163,6 +164,10 @@ public class DiscordBot extends ListenerAdapter{
                 event.reply("You are already in this game!").setEphemeral(true).queue();
                 return;
             }
+        if(app.waitingForGame()) {
+            event.reply("That player is not currently hosting a game!").setEphemeral(true).queue();
+            return;
+        }
         app.addPlayer(event.getUser().getName());
         event.reply(String.format("%s has successfully joined %s's game!",
             event.getUser().getName(),
@@ -185,6 +190,19 @@ public class DiscordBot extends ListenerAdapter{
                 .addActionRow(Button.primary(String.format("%s:%s", user, currentGame), "Join game!"))
                 .queue();
         }
+    }
+
+    private void reset(SlashCommandInteractionEvent event) {
+        if(event.getUser().getName().equals(user)){
+            app.reset();
+            event.reply(user + " successfully cancelled their games.").queue();
+        } else if (isHost()){
+            app.removePlayer(event.getUser().getName());
+        }
+    }
+
+    private boolean isHost() {
+        return app.curPlayerNumber == 0;
     }
 
     public void processMove(String encodeGameState) {
