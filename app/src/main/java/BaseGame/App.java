@@ -218,13 +218,14 @@ public class App extends PApplet {
     }
 
     public void reset() {
+        noLoop();
+        draw();
         curGameHandler = new HomePage(this);
         queuedGameHandler = null;
         numPlayers = 0;
         thisPlayerNumber = -1;
         thisPlayer = null;
         playerList = new ArrayList<Player>();
-        noLoop();
     }
 
     

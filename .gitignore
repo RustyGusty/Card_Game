@@ -3,4 +3,10 @@
 
 # Ignore Gradle build output directory
 build
+
+# Ignore client-specific information
+config.json
+
+# Ignore discord bot token
 token.txt
+

@@ -65,7 +65,7 @@ public class DiscordBot extends ListenerAdapter{
         User author = event.getAuthor();
         String message = event.getMessage().getContentRaw();
         if(author.isBot()) {
-            if(message.startsWith("Next turn:")) {
+            if(message.startsWith("Next Turn:")) {
                 makeMove(message);
             } else if(message.startsWith("A game has been started by")) {
                 startNonHostGame(message);
@@ -81,7 +81,6 @@ public class DiscordBot extends ListenerAdapter{
             app.makePlayerList(args[0], user);
             String initialDeck = args[1].substring(args[1].indexOf(":"));
             initialDeck = initialDeck.substring(2);
-            System.out.println(initialDeck);
             app.startGame(initialDeck);
         }
     }
@@ -111,6 +110,7 @@ public class DiscordBot extends ListenerAdapter{
 
     @Override
     public void onSlashCommandInteraction(SlashCommandInteractionEvent event) {
+        curChannel = event.getChannel();
         switch (event.getName()) {
             case "host_pontinho":  
                 hostGame(event, "pontinho");
@@ -183,7 +183,6 @@ public class DiscordBot extends ListenerAdapter{
      */
     private void hostGame(SlashCommandInteractionEvent event, String game) {
         if(event.getUser().getName().equals(user)) {
-            curChannel = event.getChannel();
             currentGame = game;
             app.hostGame(user, game);
             event.reply(user + " has hosted a game!")
@@ -206,6 +205,6 @@ public class DiscordBot extends ListenerAdapter{
     }
 
     public void processMove(String encodeGameState) {
-        curChannel.sendMessage("Next Turn: P" + app.curPlayerNumber + "z" + encodeGameState);
+        curChannel.sendMessage("Next Turn: P" + app.curPlayerNumber + "z" + encodeGameState).queue();
     }
 }
