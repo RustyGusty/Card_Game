@@ -53,7 +53,6 @@ public class App extends PApplet {
     public void setup() {
         background(0, 150, 0);
         frameRate(60);
-        noLoop();
 
         Rectangle.app = this;
 
@@ -124,7 +123,6 @@ public class App extends PApplet {
         curGameHandler = queuedGameHandler;
         curGameHandler.initializeDeck(startingDeck);
         curGameHandler.setup();
-        loop();
     }
 
     public CardRectangle pickedUpRect;
@@ -134,7 +132,6 @@ public class App extends PApplet {
     @Override
     public void mouseClicked() {
         if(curGameHandler.handleMouseClick(mouseX, mouseY)) {
-            nextTurn();
             bot.processMove(curGameHandler.encodeGameState());
         }
     }
@@ -145,7 +142,7 @@ public class App extends PApplet {
 
     public void makeMove(String nextMove) {
         nextTurn();
-        curGameHandler.decodeGameState(nextMove);
+        curGameHandler.nextTurn(nextMove);
     }
 
     /**
@@ -190,7 +187,7 @@ public class App extends PApplet {
     public String playerListToString() {
         String res = "";
         for(Player p : playerList) {
-            res += p.encodePlayer() + "\n";
+            res += p.toString() + "\n";
         }
         return res;
     }
@@ -218,14 +215,17 @@ public class App extends PApplet {
     }
 
     public void reset() {
+        // Stop loop completely to reassign all variables
         noLoop();
         draw();
+
         curGameHandler = new HomePage(this);
         queuedGameHandler = null;
         numPlayers = 0;
         thisPlayerNumber = -1;
         thisPlayer = null;
         playerList = new ArrayList<Player>();
+        loop();
     }
 
     

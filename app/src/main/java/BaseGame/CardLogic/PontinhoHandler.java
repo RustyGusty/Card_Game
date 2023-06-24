@@ -667,7 +667,7 @@ public class PontinhoHandler extends DeckHandler {
         res += encodeCardRect(playerRect) + "t";
         res += encodeCardRect(discardRect) + "t";
         for(int i = 0; i < moveableRectangleList.size(); i++) {
-            res += encodeCardRect(moveableRectangleList.get(i));
+            res += encodeCardRect(moveableRectangleList.get(i)) + "t";
         }
         return res;
     }
@@ -689,7 +689,6 @@ public class PontinhoHandler extends DeckHandler {
         return res;
     }
 
-    @Override
     public void decodeGameState(String boardState) {
         app.noLoop();
         int updatedPlayerNum = boardState.charAt(0) - '0';
@@ -735,6 +734,12 @@ public class PontinhoHandler extends DeckHandler {
 
         }
         return res;
+    }
+
+    @Override
+    public void nextTurn(String boardState) {
+        DeckHelper.draw(drawRect.cards);
+        decodeGameState(boardState);
     }
 }
 

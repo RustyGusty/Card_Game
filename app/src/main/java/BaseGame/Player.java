@@ -16,11 +16,6 @@ public class Player {
         hand = new ArrayList<Card>();
     }
 
-    @Override
-    public String toString() {
-        return name + " (" + hand.size() + ")";
-    }
-
     /**
      * Draws a card from drawDeck and places it into the player's hand
      * @param drawDeck Deck to be drawn from
@@ -43,7 +38,7 @@ public class Player {
         return this.name.equals(name);
     }
 
-    public String encodePlayer() {
+    public String toString() {
         return String.format("Player %d: %s", playerNumber, name);
     }
 }

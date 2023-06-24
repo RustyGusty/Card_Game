@@ -24,8 +24,6 @@ public abstract class DeckHandler {
 
     public abstract void initializeDeck(String str);
 
-    public abstract void decodeGameState(String boardState);
-
     public abstract String encodeGameState();
 
     
@@ -65,6 +63,8 @@ public abstract class DeckHandler {
      * Defines the layout of the board and where everything is drawn
      */
     public abstract void draw();
+
+    public abstract void nextTurn(String boardState);
     
 
 }

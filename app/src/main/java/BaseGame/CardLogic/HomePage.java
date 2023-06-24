@@ -1,20 +1,21 @@
 package BaseGame.CardLogic;
 
 import BaseGame.App;
+import BaseGame.Rectangles.Rectangle;
+import processing.core.PConstants;
 
 // TODO - implement rules page
 public class HomePage extends DeckHandler {
 
+    private Rectangle textBox;
+
     public HomePage(App app) {
         super(app, 0);
+        setup();
     }
 
     @Override
     public void setup() {
-        
-    }
-    @Override
-    public void decodeGameState(String boardState) {
     }
 
     @Override
@@ -44,7 +45,13 @@ public class HomePage extends DeckHandler {
 
     @Override
     public void draw() {
-        
+        app.textSize(50f);
+        String text = (app.waitingForGame()) 
+            ? "Go to discord to join or host a game!"
+            : "Waiting for host to start game";
+        app.textAlign(PConstants.CENTER);
+        app.text(text, 0.5f * app.displayWidth, 0.5f * app.displayHeight);
+        app.textAlign(PConstants.LEFT);
     }
 
     @Override
@@ -54,6 +61,10 @@ public class HomePage extends DeckHandler {
 
     @Override
     public void initializeDeck(String str) {
+    }
+
+    @Override
+    public void nextTurn(String boardState) {
     }
     
 }
