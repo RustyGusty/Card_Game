@@ -526,8 +526,9 @@ public class PontinhoHandler extends DeckHandler {
         } 
         // Discard check
         if(!firstMove && discardMarkerRect.mouseInRectangle(mouseX, mouseY) && newSetRect.cards.size() == 1) {
-            if(mustEnd)
+            if(mustEnd && playerRect.cards.size() != 1) {
                 return false;
+            }  
             if(!playerRect.outlinedCardsSet.isEmpty()) {
                 illegalDiscard = true;
                 return false;
@@ -806,8 +807,10 @@ public class PontinhoHandler extends DeckHandler {
         int res = 0;
         for(Card c : hand) {
             // Wildcards in hand are worth 20 points
-            if(c.equals(wildcard))
+            if(c.equals(wildcard)) {
                 res += 20;
+                continue;
+            }
             switch(c.value) {
                 // Aces worth 15 normally, or just 1 if your score is exactly 98
                 case 0:
