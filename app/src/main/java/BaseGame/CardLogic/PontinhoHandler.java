@@ -1,3 +1,4 @@
+// TODO fix encoding: Add length parameter and only show most-recently discarded card instead of all
 package BaseGame.CardLogic;
 
 import java.util.ArrayList;
@@ -131,7 +132,7 @@ public class PontinhoHandler extends DeckHandler {
     public void setup() {
         int iterations = 0;
         int ind = app.curPlayerNumber;
-        while(iterations < 3) {
+        while(iterations < 3 && ind >= app.curPlayerNumber) {
             app.playerList.get(ind).addFromDeck(drawRect.cards, 3);
             ind++;
             if(ind >= app.numPlayers){
@@ -544,9 +545,7 @@ public class PontinhoHandler extends DeckHandler {
         // Select existing set check
         if(selectedRectIndex == -1 && (selectedRectIndex = getMoveableRectangleIndex(mouseX, mouseY)) != -1) {
             for(Card addedCard : moveableRectangleList.get(selectedRectIndex).cards) 
-                newSetRect.addOutlinedCard(addedCard);
-            newSetRect.cards.sort(null);
-            
+                newSetRect.addOutlinedCard(addedCard);            
             updateNewSet();
             return false;
         }

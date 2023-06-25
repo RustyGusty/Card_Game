@@ -30,7 +30,7 @@ public class DiscordBot extends ListenerAdapter{
         DiscordBot.user = user;
         
         try {
-            String token = new String(Files.readAllBytes(Paths.get("token.txt")), StandardCharsets.UTF_8).trim();
+            String token = new String(Files.readAllBytes(Paths.get("misc/token.txt")), StandardCharsets.UTF_8).trim();
 
             JDA jda = JDABuilder.createLight(token)
                     .addEventListeners(new DiscordBot())
@@ -40,7 +40,7 @@ public class DiscordBot extends ListenerAdapter{
             
             jda.getRestPing().queue(ping ->
                 // shows ping in milliseconds
-                System.out.println("Logged in with ping: " + ping)
+                System.out.println(user + " logged in with ping: " + ping)
             );
 
             jda.updateCommands().addCommands(

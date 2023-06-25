@@ -3,6 +3,9 @@
  */
 package BaseGame;
 
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -12,7 +15,6 @@ import BaseGame.Rectangles.CardRectangle;
 import BaseGame.Rectangles.Rectangle;
 import processing.core.PApplet;
 import processing.core.PImage;
-import processing.data.JSONObject;
 
 public class App extends PApplet {
 
@@ -82,10 +84,14 @@ public class App extends PApplet {
         imageList[13 * 4 + 2] = loadImage("app/src/main/resources/Poker Cards PNG/card_back_red.png");
         imageList[13 * 4] = loadImage("app/src/main/resources/Poker Cards PNG/red_joker.png");
         imageList[13 * 4 + 1] = loadImage("app/src/main/resources/Poker Cards PNG/black_joker.png");
-        JSONObject configObj = loadJSONObject("config.json");
-
-        String user = configObj.getString("user");
-        DiscordBot.initializeBot(this, user);
+        try {
+            String user = new String(Files.readAllBytes(Paths.get("misc/username.txt")), StandardCharsets.UTF_8).trim();
+            DiscordBot.initializeBot(this, user);
+        } catch (Exception e){
+            System.out.println("username.txt not found: Text file with your discord username only");
+            exit();
+            System.exit(1);
+        }
     }
 
     public void hostGame(String host, String game) {

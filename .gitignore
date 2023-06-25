@@ -4,9 +4,8 @@
 # Ignore Gradle build output directory
 build
 
-# Ignore client-specific information
-config.json
+# Ignore username
+username.txt
 
 # Ignore discord bot token
 token.txt
-

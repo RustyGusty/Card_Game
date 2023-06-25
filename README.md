@@ -1,6 +1,8 @@
 # Card_Game
  Playble Card Game through discord bot (Pontinho, more to be added later)
 
+Note: To use, include two additional text files in the "misc" folder: username.txt with your discord username, and token.txt with the discord bot token
+
 # Pontinho Rules
  This is a Brazilian Card game that my family likes to play, and I wanted a way to play with them from overseas (a niche game even in Brazil, so no such service exists already and I don't wanna pay for something like TableTop Simulator)
 
