@@ -9,11 +9,26 @@ public class Player {
     public int playerNumber;
     private String name;
     public final List<Card> hand;
+    private int score;
+
+    public int getScore() {
+        return score;
+    }
+
+    public int incrementScore(int inc) {
+        score += inc;
+        return score;
+    }
+
+    public void resetScore() {
+        score = 0;
+    }
 
     public Player(String name, int playerNumber) {
         this.playerNumber = playerNumber;
         this.name = name;
         hand = new ArrayList<Card>();
+        score = 0;
     }
 
     /**
@@ -39,6 +54,6 @@ public class Player {
     }
 
     public String toString() {
-        return String.format("Player %d: %s", playerNumber, name);
+        return String.format("Player %d: %s (%d)", playerNumber, name, score);
     }
 }

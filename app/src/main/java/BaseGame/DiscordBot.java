@@ -46,7 +46,8 @@ public class DiscordBot extends ListenerAdapter{
             jda.updateCommands().addCommands(
                 Commands.slash("host_pontinho", "Host a game of Pontinho"),
                 Commands.slash("start_game", "Start the game as the host"),
-                Commands.slash("reset", "Cancels all hosted and queued games")
+                Commands.slash("reset", "Cancels all hosted and queued games"),
+                Commands.slash("next_round", "Host starts the next round of the game")
                 ).queue();
 
             jda.awaitReady();
@@ -69,6 +70,8 @@ public class DiscordBot extends ListenerAdapter{
                 makeMove(message);
             } else if(message.startsWith("A game has been started by")) {
                 startNonHostGame(message);
+            } else if (message.startsWith("Next round started by")) {
+                startNextRound(message);
             }
             return;
         }
@@ -84,6 +87,13 @@ public class DiscordBot extends ListenerAdapter{
             app.startGame(initialDeck);
         }
     }
+
+    private void startNextRound(String message) {
+        String[] strList = message.split(":");
+        String deck = strList[strList.length - 1].substring(1);
+        app.nextRound(deck);
+    }
+
 
     private void makeMove(String message) {
         String[] move = message.split("z");
@@ -120,6 +130,9 @@ public class DiscordBot extends ListenerAdapter{
                 break;
             case "reset":
                 reset(event);
+                break;
+            case "next_round":
+                nextRound(event);
                 break;
         }
     }
@@ -200,8 +213,24 @@ public class DiscordBot extends ListenerAdapter{
         }
     }
 
+    private void nextRound(SlashCommandInteractionEvent event) { 
+        if(event.getUser().getName().equals(user)) {
+            if(!isHost())
+                event.reply("You are not a host!").setEphemeral(true).queue();
+            else {
+                if(!app.roundOver())
+                    event.reply("The round is not over yet!").setEphemeral(true).queue();
+                else {
+                    event.reply(String.format("Next round started by %s!\n\nGame ID: %s",
+                    user,
+                    app.initializeDeck())).queue();
+                }
+            }
+        }
+    }
+
     private boolean isHost() {
-        return app.curPlayerNumber == 0;
+        return app.thisPlayerNumber == 0;
     }
 
     public void processMove(String encodeGameState) {

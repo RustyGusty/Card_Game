@@ -8,6 +8,8 @@ public abstract class DeckHandler {
     /** Encoded version of the starting deck */
     public String startingDeck;
     public final int minPlayerCount;
+    /** Indicates which player has won in playerList */
+    public int winningPlayerNumber = -1;
 
     /**
      * Initializes the passed app through the setup function
@@ -25,6 +27,8 @@ public abstract class DeckHandler {
     public abstract void initializeDeck(String str);
 
     public abstract String encodeGameState();
+
+    public abstract void declareWinner(int winningPlayerNumber);
 
     
     /**

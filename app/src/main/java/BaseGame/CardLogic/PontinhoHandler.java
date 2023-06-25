@@ -30,7 +30,7 @@ public class PontinhoHandler extends DeckHandler {
     /** Rectangle containing the discard pile */
     private CardRectangle discardRect;
     /** Redundant variable for whether the currently-displayed new set is playable */
-    private boolean newSetValid = false;
+    private boolean newSetValid;
 
     /** Bottom-left corner, box to show other players' hands */
     private Rectangle otherPlayerDisplay;
@@ -51,9 +51,9 @@ public class PontinhoHandler extends DeckHandler {
     private PictureRectangle discardMarkerRect;
     
     /** True if it's the first move and must draw from the deck or discard pile */
-    private boolean firstMove = true;
+    private boolean firstMove;
     /** Used for if wildcards are played in ways which are only allowed as a final move */
-    private boolean mustEnd = false;
+    private boolean mustEnd;
     /** Stores whether the current set will force the game to end if played */
     private boolean tempGameEnd;
 
@@ -63,11 +63,11 @@ public class PontinhoHandler extends DeckHandler {
     /** List of all played sets that can be moved around. Sets are never removed, only
      * added, so the order will be preserved
      */
-    private List<MultiCardRectangle> moveableRectangleList = new ArrayList<MultiCardRectangle>();
+    private List<MultiCardRectangle> moveableRectangleList;
     /** Indices into moveableRectangleList, to be used for priority in drawing
      * (Earlier elements are drawn before later elements)
      */
-    private List<Integer> moveableRectanglePriorityList = new ArrayList<Integer>();
+    private List<Integer> moveableRectanglePriorityList;
     /** When editing a moveableRect, this is the index to that rectangle.
      * If nothing is being edited, this value defaults to -1
      */
@@ -93,12 +93,19 @@ public class PontinhoHandler extends DeckHandler {
     /** Gets the current index in the hand of the dragging card */
     private int pickedUpCardIndex = -1;
 
-    private boolean canDrawDiscard = false;
+    /** Whether or not the discarded card can be drawn */
+    private boolean canDrawDiscard;
+    /** Used to display to the user if they need to play cards from hand to discard */
+    private boolean illegalDiscard;
+    /** Indicates whether or not the player is done making their move */
+    private boolean moveMade;
 
-    private boolean illegalDiscard = false;
+    /** Gives the player's score for this round */
+    private int roundScore;
 
     public PontinhoHandler(App app){
         super(app, 2);
+        MultiOutlineRectangle.setup();
     }
 
     @Override
@@ -122,8 +129,6 @@ public class PontinhoHandler extends DeckHandler {
      * Called after the starting deck is initialized
      */
     public void setup() {
-        MultiOutlineRectangle.setup();
-        
         int iterations = 0;
         int ind = app.curPlayerNumber;
         while(iterations < 3) {
@@ -150,6 +155,19 @@ public class PontinhoHandler extends DeckHandler {
             (int) (app.displayHeight - app.defaultHeight * (0.6*index + 0.45)), 0.5f, app.playerList.get(i).hand, Mode.FLIPPED_ALL);
             index++;
         }
+
+        newSetValid = false;
+        firstMove = true;
+        mustEnd = false;
+        moveableRectangleList = new ArrayList<MultiCardRectangle>();
+        moveableRectanglePriorityList = new ArrayList<Integer>();
+        cardOriginRect = null;
+        canDrawDiscard = false;
+        illegalDiscard = false;
+        moveMade = false;
+        roundScore = 0;
+        winningPlayerNumber = -1;
+        lastValidState = null;
 
         float height = app.defaultHeight * 0.6f * ((app.numPlayers - 1) + 0.4f);
         otherPlayerDisplay = new Rectangle((int) (app.displayWidth * 0.15f), (int) (app.displayHeight - height / 2), (int) (app.displayWidth * 0.3f), (int) height);
@@ -392,6 +410,7 @@ public class PontinhoHandler extends DeckHandler {
 
     @Override
     public boolean handleMouseClick(int mouseX, int mouseY){
+        if(moveMade || winningPlayerNumber != -1) return false;
         illegalDiscard = false;
         if((app.thisPlayerNumber + 1) % app.numPlayers == app.curPlayerNumber) 
             return false;
@@ -486,7 +505,10 @@ public class PontinhoHandler extends DeckHandler {
             tempGameEnd = false;
             firstMove = false;
             updateNewSet();
-            return playerRect.cards.isEmpty();
+            boolean res;
+            if(res = playerRect.cards.isEmpty())
+                winningPlayerNumber = app.thisPlayerNumber;
+            return res;
         }
         // First move draw check
         if(firstMove) {
@@ -517,6 +539,8 @@ public class PontinhoHandler extends DeckHandler {
             playerRect.shownCardsIndices.clear();
             firstMove = true;
             lastValidState = null;
+            if(playerRect.cards.isEmpty())
+                winningPlayerNumber = app.thisPlayerNumber;
             return true;
         }
         // Select existing set check
@@ -588,20 +612,32 @@ public class PontinhoHandler extends DeckHandler {
             ((MultiOutlineRectangle) pickedUpRect).drawSingle(outlinedCardPicked);
             playerRect.drawEnd();
         }
-        if(app.curPlayerNumber == app.thisPlayerNumber) {
+        if(winningPlayerNumber != -1 || !moveMade && app.curPlayerNumber == app.thisPlayerNumber) {
             app.fill(100f, 180f);
             textHeader.draw();
             app.textAlign(PConstants.CENTER, PConstants.CENTER);
             app.textSize(30f * app.scaleFactor);
             app.fill(256f);
-            if(firstMove)
-                app.text("Your turn: Draw a card from the draw or discard deck", textHeader.xCenter, textHeader.yCenter);
+            String printText;
+            if (winningPlayerNumber == app.thisPlayerNumber)
+                printText = "You won the round! Total points: " + app.thisPlayer.getScore();
+            else if (winningPlayerNumber != -1) 
+                if(app.thisPlayer.getScore() >= 100)
+                    printText = app.playerList.get(winningPlayerNumber).toString() + "won. You passed 100 points!";
+                else
+                    printText = String.format("%s won. Your points: %d. Total points: %d",
+                        app.playerList.get(winningPlayerNumber).toString(),
+                        roundScore,
+                        app.thisPlayer.getScore());
+            else if(firstMove)
+                printText = "Your turn: Draw a card from the draw or discard deck";
             else if(mustEnd)
-                app.text("Wildcard used! You must play all cards from hand, or revert", textHeader.xCenter, textHeader.yCenter);
+                printText = "Wildcard used! You must play all cards from hand, or revert";
             else if (illegalDiscard)
-                app.text("You have outlined cards in your hand that must be played!", textHeader.xCenter, textHeader.yCenter);
+                printText = "You have outlined cards in your hand that must be played!";
             else
-                app.text("Your turn: Discard a card to end turn", textHeader.xCenter, textHeader.yCenter);
+                printText = "Your turn: Discard a card to end turn";
+            app.text(printText, textHeader.xCenter, textHeader.yCenter);
             app.textAlign(PConstants.LEFT);
         }
 
@@ -689,6 +725,7 @@ public class PontinhoHandler extends DeckHandler {
         return res;
     }
 
+    // TODO - Finish bugfixing decodeGameState (Breakpoint on full board with adding a new set)
     public void decodeGameState(String boardState) {
         app.noLoop();
         int updatedPlayerNum = boardState.charAt(0) - '0';
@@ -701,18 +738,20 @@ public class PontinhoHandler extends DeckHandler {
         setRectList(discardRect, decodeCardList(cardLists[1]));
         
         int rectInd = 0;
-        if(!cardLists[2].isEmpty())
-            while(rectInd < cardLists.length - 2) {
-                if(rectInd >= moveableRectangleList.size()){
-                    moveableRectanglePriorityList.add(moveableRectangleList.size());
-                    moveableRectangleList.add(new MultiCardRectangle((int) drawRect.xCenter, (int) drawRect.yCenter, 1, new ArrayList<Card>(), Mode.REVEALED_ALL));
-                }
-                setRectList(moveableRectangleList.get(rectInd), decodeCardList(cardLists[rectInd + 2]));
-                rectInd++;
+        while(rectInd < cardLists.length - 2) {
+            if(cardLists[rectInd + 2].isEmpty())
+                break;
+
+            if(rectInd >= moveableRectangleList.size()){
+                moveableRectanglePriorityList.add(moveableRectangleList.size());
+                moveableRectangleList.add(new MultiCardRectangle((int) drawRect.xCenter, (int) drawRect.yCenter, 1, new ArrayList<Card>(), Mode.REVEALED_ALL));
             }
+            setRectList(moveableRectangleList.get(rectInd), decodeCardList(cardLists[rectInd + 2]));
+            rectInd++;
+        }
         for(int i = moveableRectangleList.size() - 1; i >= rectInd; i--) {
             moveableRectangleList.remove(i);
-            moveableRectanglePriorityList.remove(i);
+            moveableRectanglePriorityList.remove(Integer.valueOf(i));
         }
 
         returnedCardsIndices.clear();
@@ -740,6 +779,43 @@ public class PontinhoHandler extends DeckHandler {
     public void nextTurn(String boardState) {
         DeckHelper.draw(drawRect.cards);
         decodeGameState(boardState);
+    }
+
+    public void declareWinner(int winningPlayerNumber) {
+        this.winningPlayerNumber = winningPlayerNumber;
+        roundScore = calculateHandScore(playerRect.cards);
+        for(Player p : app.playerList) {
+            p.incrementScore(calculateHandScore(p.hand));
+        }
+    }
+
+    private int calculateHandScore(List<Card> hand) {
+        int res = 0;
+        for(Card c : hand) {
+            // Wildcards in hand are worth 20 points
+            if(c.equals(wildcard))
+                res += 20;
+            switch(c.value) {
+                // Aces worth 15 normally, or just 1 if your score is exactly 98
+                case 0:
+                    if(app.thisPlayer.getScore() == 98)
+                        res += 1;
+                    else
+                        res += 15;
+                    break;
+                // Figures are worth 10
+                case 10:
+                case 11:
+                case 12:
+                    res += 10;
+                    break;
+                // Number cards are worth their face value
+                default:
+                    res += c.value + 1;
+                    break;
+            }
+        }
+        return res;
     }
 }
 

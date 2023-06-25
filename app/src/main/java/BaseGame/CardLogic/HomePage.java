@@ -1,13 +1,10 @@
 package BaseGame.CardLogic;
 
 import BaseGame.App;
-import BaseGame.Rectangles.Rectangle;
 import processing.core.PConstants;
 
 // TODO - implement rules page
 public class HomePage extends DeckHandler {
-
-    private Rectangle textBox;
 
     public HomePage(App app) {
         super(app, 0);
@@ -65,6 +62,10 @@ public class HomePage extends DeckHandler {
 
     @Override
     public void nextTurn(String boardState) {
+    }
+
+    @Override
+    public void declareWinner(int winningPlayerNumber) {
     }
     
 }

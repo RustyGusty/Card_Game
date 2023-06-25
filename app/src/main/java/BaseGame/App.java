@@ -22,6 +22,7 @@ public class App extends PApplet {
     /** 0 for the host, -1 for an uninitialized player */
     public int thisPlayerNumber = -1;
     public int curPlayerNumber = 0;
+    private int startingPlayerNumber = 0;
     public int minPlayerCount;
 
     public float scaleFactor;
@@ -120,9 +121,12 @@ public class App extends PApplet {
     }
 
     public void startGame(String startingDeck) {
+        noLoop();
+        draw();
         curGameHandler = queuedGameHandler;
         curGameHandler.initializeDeck(startingDeck);
         curGameHandler.setup();
+        loop();
     }
 
     public CardRectangle pickedUpRect;
@@ -225,9 +229,25 @@ public class App extends PApplet {
         thisPlayerNumber = -1;
         thisPlayer = null;
         playerList = new ArrayList<Player>();
+        startingPlayerNumber = 0;
         loop();
     }
 
-    
+    public boolean roundOver() {
+        return curGameHandler.winningPlayerNumber != -1;
+    }
+
+    public String initializeDeck() {
+        return curGameHandler.initializeDeck();
+    }
+
+    public void nextRound(String initialDeck) {
+        curGameHandler.initializeDeck(initialDeck);
+        startingPlayerNumber = (startingPlayerNumber + 1) % numPlayers;
+        curPlayerNumber = startingPlayerNumber;
+        noLoop();
+        curGameHandler.setup();
+        loop();
+    }
 }
 
