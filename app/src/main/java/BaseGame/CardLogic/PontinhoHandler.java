@@ -507,7 +507,7 @@ public class PontinhoHandler extends DeckHandler {
             updateNewSet();
             boolean res;
             if(res = playerRect.cards.isEmpty())
-                winningPlayerNumber = app.thisPlayerNumber;
+                resetRoundVariables();
             return res;
         }
         // First move draw check
@@ -537,10 +537,7 @@ public class PontinhoHandler extends DeckHandler {
             updateNewSet();
             playerRect.cards.remove((int) playerRect.shownCardsIndices.iterator().next());
             playerRect.shownCardsIndices.clear();
-            firstMove = true;
-            lastValidState = null;
-            if(playerRect.cards.isEmpty())
-                winningPlayerNumber = app.thisPlayerNumber;
+            resetRoundVariables();
             return true;
         }
         // Select existing set check
@@ -568,6 +565,18 @@ public class PontinhoHandler extends DeckHandler {
         return false;
     }
 
+    /** Resets round variables */
+    private void resetRoundVariables() {
+        newSetValid = false;
+        firstMove = true;
+        mustEnd = false;
+        canDrawDiscard = false;
+        illegalDiscard = false;
+        moveMade = false;
+        lastValidState = null;
+    }
+
+    /** Recalcualtes the newSet rectangle parameters */
     private void updateNewSet() {
         newSetRect.calculateRectangle();
         newSetRect.updateXPosition(0, 20 * app.scaleFactor, app.displayWidth);
@@ -725,16 +734,20 @@ public class PontinhoHandler extends DeckHandler {
         return res;
     }
 
-    // TODO - Finish bugfixing decodeGameState (Breakpoint on full board with adding a new set)
     public void decodeGameState(String boardState) {
         app.noLoop();
         int updatedPlayerNum = boardState.charAt(0) - '0';
         if(updatedPlayerNum != app.curPlayerNumber)
             canDrawDiscard = false;
+        if(updatedPlayerNum != app.thisPlayerNumber)
+            DeckHelper.draw(drawRect.cards);
         String[] cardLists = boardState.substring(1).split("t", -1);
         List<Card> updatedList = app.playerList.get(updatedPlayerNum).hand;
         updatedList.clear();
         updatedList.addAll(decodeCardList(cardLists[0]));
+        if(updatedList.isEmpty()) {
+            declareWinner(updatedPlayerNum);
+        }
         setRectList(discardRect, decodeCardList(cardLists[1]));
         
         int rectInd = 0;
@@ -777,11 +790,11 @@ public class PontinhoHandler extends DeckHandler {
 
     @Override
     public void nextTurn(String boardState) {
-        DeckHelper.draw(drawRect.cards);
+        lastValidState = null;
         decodeGameState(boardState);
     }
 
-    public void declareWinner(int winningPlayerNumber) {
+    private void declareWinner(int winningPlayerNumber) {
         this.winningPlayerNumber = winningPlayerNumber;
         roundScore = calculateHandScore(playerRect.cards);
         for(Player p : app.playerList) {

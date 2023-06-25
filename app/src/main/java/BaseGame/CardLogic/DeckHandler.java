@@ -27,9 +27,6 @@ public abstract class DeckHandler {
     public abstract void initializeDeck(String str);
 
     public abstract String encodeGameState();
-
-    public abstract void declareWinner(int winningPlayerNumber);
-
     
     /**
      * Handles whatever should happen when the mouse is clicked

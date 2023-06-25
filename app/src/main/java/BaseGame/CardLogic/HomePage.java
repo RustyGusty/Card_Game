@@ -63,9 +63,5 @@ public class HomePage extends DeckHandler {
     @Override
     public void nextTurn(String boardState) {
     }
-
-    @Override
-    public void declareWinner(int winningPlayerNumber) {
-    }
     
 }

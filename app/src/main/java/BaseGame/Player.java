@@ -54,6 +54,6 @@ public class Player {
     }
 
     public String toString() {
-        return String.format("Player %d: %s (%d)", playerNumber, name, score);
+        return String.format("Player %d: %s", playerNumber, name);
     }
 }
