@@ -1,4 +1,3 @@
-// TODO fix encoding: Add length parameter and only show most-recently discarded card instead of all
 package BaseGame.CardLogic;
 
 import java.util.ArrayList;
@@ -8,7 +7,6 @@ import java.util.List;
 import java.util.Set;
 
 import BaseGame.App;
-import BaseGame.Mode;
 import BaseGame.Player;
 import BaseGame.Cards.*;
 import BaseGame.Rectangles.*;
@@ -19,23 +17,24 @@ public class PontinhoHandler extends DeckHandler {
 
     /** Rectangle containing the draw deck */
     private CardRectangle drawRect;
+    /** Reference for which card is the wildcard */
+    private Card wildcard;
     /** Rectangle showing the wildcard */
     private CardRectangle wildcardRect;
     /** Rectangle in the bottom-right for the current player's hand */
     private MultiOutlineRectangle playerRect;
-    /** List of the other players' rectangles to display in the otherPlayerDisplay
-     */
+    /** List of the other players' rectangles to display in the otherPlayerDisplay */
     private MultiCardRectangle otherPlayerRect[];
     /** Rectangle in the newSetDisplay to show the potential new or edited set */
     private MultiOutlineRectangle newSetRect;
     /** Rectangle containing the discard pile */
     private CardRectangle discardRect;
-    /** Redundant variable for whether the currently-displayed new set is playable */
+    /** Whether the currently-displayed new set is playable */
     private boolean newSetValid;
 
     /** Bottom-left corner, box to show other players' hands */
     private Rectangle otherPlayerDisplay;
-    /** Bottom-left corner, box to show new set and confirm/cancel buttons  */
+    /** Bottom-left corner, box to show new set and confirm/cancel buttons */
     private Rectangle newSetDisplay;
     /** Text background in top of the play to show next move */
     private Rectangle textHeader;
@@ -50,10 +49,13 @@ public class PontinhoHandler extends DeckHandler {
     private PictureRectangle revertButtonRect;
     /** PNG containing the discard marker */
     private PictureRectangle discardMarkerRect;
-    
+
     /** True if it's the first move and must draw from the deck or discard pile */
     private boolean firstMove;
-    /** Used for if wildcards are played in ways which are only allowed as a final move */
+    /**
+     * Used for if wildcards are played in ways which are only allowed as a final
+     * move
+     */
     private boolean mustEnd;
     /** Stores whether the current set will force the game to end if played */
     private boolean tempGameEnd;
@@ -61,24 +63,25 @@ public class PontinhoHandler extends DeckHandler {
     /** Used to allow undo-ing to a valid state for various rules */
     private String lastValidState;
 
-    /** List of all played sets that can be moved around. Sets are never removed, only
-     * added, so the order will be preserved
+    /**
+     * List of all played sets that can be moved around. Sets are never removed,
+     * only added, so the order will be preserved
      */
     private List<MultiCardRectangle> moveableRectangleList;
-    /** Indices into moveableRectangleList, to be used for priority in drawing
+    /**
+     * Indices into moveableRectangleList, to be used for priority in drawing
      * (Earlier elements are drawn before later elements)
      */
     private List<Integer> moveableRectanglePriorityList;
-    /** When editing a moveableRect, this is the index to that rectangle.
+    /**
+     * When editing a moveableRect, this is the index to that rectangle.
      * If nothing is being edited, this value defaults to -1
      */
     private int selectedRectIndex = -1;
 
-    /** Reference for which card is the wildcard */
-    private Card wildcard;
     /** Reference to which of the moveable rectangles has been picked up */
     private MultiCardRectangle pickedUpRect;
-    /** Reference to which CardRectangle has a card taken from it */
+    /** Reference to which CardRectangle has a card taken from it when dragging*/
     private MultiOutlineRectangle cardOriginRect = null;
 
     /** Used when dragging cards to not snap to the center always */
@@ -88,15 +91,25 @@ public class PontinhoHandler extends DeckHandler {
 
     /** Delineates the playArea in the top half of the board */
     private Rectangle playArea;
-    /** Delineates the area outside the playArea reserved for moving cards around
-     * in the bottom half of the screen */
+    /**
+     * Delineates the area outside the playArea reserved for moving cards around
+     * in the bottom half of the screen
+     */
     private Rectangle playerArea;
     /** Gets the current index in the hand of the dragging card */
     private int pickedUpCardIndex = -1;
+    /** Whether or not the picked-up card was selected before */
+    private boolean selectedCardPicked = false;
+    /** Whether or not the picked-up card was outlined before */
+    private boolean outlinedCardPicked = false;
+    /** Whether or not the picked-up card was a returned card */
+    private boolean returnedCardPicked = false;
+    /** The set of all he indices in playerRect that were just picked from the board */
+    private Set<Integer> returnedCardsIndices = new HashSet<Integer>();
 
     /** Whether or not the discarded card can be drawn */
     private boolean canDrawDiscard;
-    /** Used to display to the user if they need to play cards from hand to discard */
+    /** Used to display to the user if they need to play cards from hand */
     private boolean illegalDiscard;
     /** Indicates whether or not the player is done making their move */
     private boolean moveMade;
@@ -104,7 +117,12 @@ public class PontinhoHandler extends DeckHandler {
     /** Gives the player's score for this round */
     private int roundScore;
 
-    public PontinhoHandler(App app){
+    /**
+     * Declares a game of Pontinho
+     * 
+     * @param app Reference to the currently-used app
+     */
+    public PontinhoHandler(App app) {
         super(app, 2);
         MultiOutlineRectangle.setup();
     }
@@ -119,41 +137,41 @@ public class PontinhoHandler extends DeckHandler {
 
     @Override
     public void initializeDeck(String startingDeck) {
-        if(this.startingDeck == null) {
+        if (this.startingDeck == null) {
             this.startingDeck = startingDeck;
             drawRect = new CardRectangle(0.5f, 0.2f, 1, decodeStartingDeck(startingDeck), Mode.FLIPPED_SINGLE);
         }
     }
 
-    /**
-     * Sets up the game with players, hands, boards, etc.
-     * Called after the starting deck is initialized
-     */
+    @Override
     public void setup() {
         int iterations = 0;
         int ind = app.curPlayerNumber;
-        while(iterations < 3 && ind >= app.curPlayerNumber) {
+        while (iterations < 3 && ind >= app.curPlayerNumber) {
             app.playerList.get(ind).addFromDeck(drawRect.cards, 3);
             ind++;
-            if(ind >= app.numPlayers){
+            if (ind >= app.numPlayers) {
                 iterations++;
                 ind = 0;
             }
         }
-        
-        for(Player p : app.playerList)
+
+        for (Player p : app.playerList)
             Collections.sort(p.hand);
-            
+
         List<Card> wildcardSet = new ArrayList<Card>();
         wildcardSet.add(DeckHelper.draw(drawRect.cards));
         wildcardRect = new CardRectangle(0.5f, 0.15f, 1, wildcardSet, Mode.REVEALED_SINGLE);
-        playerRect = new MultiOutlineRectangle((int) (0.65 * app.displayWidth), app.displayHeight - (int) (1.1 * app.defaultHeight), 1.5f, app.thisPlayer.hand, Mode.REVEALED_SELECT);
+        playerRect = new MultiOutlineRectangle((int) (0.65 * app.displayWidth),
+                app.displayHeight - (int) (1.1 * app.defaultHeight), 1.5f, app.thisPlayer.hand, Mode.REVEALED_SELECT);
         otherPlayerRect = new MultiCardRectangle[app.numPlayers - 1];
         int index = 0;
-        for(int i = 0; i < app.numPlayers; i++) {
-            if(i == app.thisPlayerNumber) continue;
+        for (int i = 0; i < app.numPlayers; i++) {
+            if (i == app.thisPlayerNumber)
+                continue;
             otherPlayerRect[index] = new MultiCardRectangle((int) (0.1 * app.displayWidth),
-            (int) (app.displayHeight - app.defaultHeight * (0.6*index + 0.45)), 0.5f, app.playerList.get(i).hand, Mode.FLIPPED_ALL);
+                    (int) (app.displayHeight - app.defaultHeight * (0.6 * index + 0.45)), 0.5f,
+                    app.playerList.get(i).hand, Mode.FLIPPED_ALL);
             index++;
         }
 
@@ -171,42 +189,55 @@ public class PontinhoHandler extends DeckHandler {
         lastValidState = null;
 
         float height = app.defaultHeight * 0.6f * ((app.numPlayers - 1) + 0.4f);
-        otherPlayerDisplay = new Rectangle((int) (app.displayWidth * 0.15f), (int) (app.displayHeight - height / 2), (int) (app.displayWidth * 0.3f), (int) height);
-        int playHeight = (int) Math.min(app.displayHeight - height, app.displayHeight - playerRect.height * 1.5);
+        otherPlayerDisplay = new Rectangle((int) (app.displayWidth * 0.15f), (int) (app.displayHeight - height / 2),
+                (int) (app.displayWidth * 0.3f), (int) height);
+        int playHeight = (int) Math.min(app.displayHeight - height, app.displayHeight - playerRect.getHeight() * 1.5);
         playArea = new Rectangle(app.displayWidth / 2, playHeight / 2, app.displayWidth, playHeight);
         int playerAreaHeight = app.displayHeight - playHeight;
-        playerArea = new Rectangle((int) (app.displayWidth / 2), (int) (app.displayHeight - playerAreaHeight / 2), app.displayWidth, playerAreaHeight);
-        
-        newSetRect = new MultiOutlineRectangle((int) otherPlayerDisplay.xCenter, (int) playerRect.yCenter, 1.5f, new ArrayList<Card>(), Mode.REVEALED_ALL);
-        newSetDisplay = new Rectangle((int) otherPlayerDisplay.xCenter, (int) playerRect.yCenter, otherPlayerDisplay.width, (app.displayHeight - playerRect.yCenter) * 2);
-        confirmButtonRect = new PictureRectangle((int) (otherPlayerDisplay.xRight - 70 * app.scaleFactor), (int) (playerRect.yCenter + 30 * app.scaleFactor), 120 * app.scaleFactor, 44 * app.scaleFactor, "app/src/main/resources/Button/unpressed_confirm.png");
-        cancelButtonRect = new PictureRectangle((int) confirmButtonRect.xCenter, (int) (confirmButtonRect.yCenter - 60 * app.scaleFactor), 120 * app.scaleFactor, 44 * app.scaleFactor, "app/src/main/resources/Button/unpressed_cancel.png");
-        revertRect = new Rectangle((int) (app.displayWidth - 80 * app.scaleFactor), (int) (app.displayHeight - 44 * app.scaleFactor), 160 * app.scaleFactor, 84 * app.scaleFactor);
-        revertButtonRect = new PictureRectangle((int) (app.displayWidth - 80 * app.scaleFactor), (int) (app.displayHeight - 44 * app.scaleFactor), 120 * app.scaleFactor, 44 * app.scaleFactor, "app/src/main/resources/Button/unpressed_revert.png");
-        
+        playerArea = new Rectangle((int) (app.displayWidth / 2), (int) (app.displayHeight - playerAreaHeight / 2),
+                app.displayWidth, playerAreaHeight);
+
+        newSetRect = new MultiOutlineRectangle((int) otherPlayerDisplay.getxCenter(), (int) playerRect.getyCenter(),
+                1.5f, new ArrayList<Card>(), Mode.REVEALED_ALL);
+        newSetDisplay = new Rectangle((int) otherPlayerDisplay.getxCenter(), (int) playerRect.getyCenter(),
+                otherPlayerDisplay.getWidth(), (app.displayHeight - playerRect.getyCenter()) * 2);
+        confirmButtonRect = new PictureRectangle((int) (otherPlayerDisplay.getxRight() - 70 * app.scaleFactor),
+                (int) (playerRect.getyCenter() + 30 * app.scaleFactor), 120 * app.scaleFactor, 44 * app.scaleFactor,
+                "app/src/main/resources/Button/unpressed_confirm.png");
+        cancelButtonRect = new PictureRectangle((int) confirmButtonRect.getxCenter(),
+                (int) (confirmButtonRect.getyCenter() - 60 * app.scaleFactor), 120 * app.scaleFactor,
+                44 * app.scaleFactor, "app/src/main/resources/Button/unpressed_cancel.png");
+        revertRect = new Rectangle((int) (app.displayWidth - 80 * app.scaleFactor),
+                (int) (app.displayHeight - 44 * app.scaleFactor), 160 * app.scaleFactor, 84 * app.scaleFactor);
+        revertButtonRect = new PictureRectangle((int) (app.displayWidth - 80 * app.scaleFactor),
+                (int) (app.displayHeight - 44 * app.scaleFactor), 120 * app.scaleFactor, 44 * app.scaleFactor,
+                "app/src/main/resources/Button/unpressed_revert.png");
+
         discardRect = new CardRectangle(0.65f, 0.19f, 1, new ArrayList<Card>(), Mode.REVEALED_SINGLE);
-        discardMarkerRect = new PictureRectangle(0.65f, 0.2f, 126 * app.scaleFactor, 202 * app.scaleFactor, "app/src/main/resources/discard_pile.png");
+        discardMarkerRect = new PictureRectangle(0.65f, 0.2f, 126 * app.scaleFactor, 202 * app.scaleFactor,
+                "app/src/main/resources/discard_pile.png");
 
         textHeader = new Rectangle(0.5f, 0.03f, 0.5f * app.displayWidth, 0.06f * app.displayHeight);
         int wildcardValue = wildcardSet.get(0).value + 1;
-        if(wildcardValue > 12) 
+        if (wildcardValue > 12)
             wildcardValue = 0;
         wildcard = new Card(wildcardValue, wildcardSet.get(0).suit);
     }
-      
-    public boolean setIsValid(List<Card> set) {
+
+    private boolean setIsValid(List<Card> set) {
         tempGameEnd = false;
-        if(set.size() <= 2) return false; // Sets must be 3 or greater
-        
+        if (set.size() <= 2)
+            return false; // Sets must be 3 or greater
+
         // Ensure that this set is in non-decreasing order for runCheck
         List<Card> properSet = new ArrayList<Card>(set);
         int firstNonWild = -1;
         while(set.get(++firstNonWild).equals(wildcard));
         int lastNonWild = set.size();
-        while(set.get(--lastNonWild).equals(wildcard));
-        if(set.get(firstNonWild).compareTo(set.get(lastNonWild)) > 0)
+        while (set.get(--lastNonWild).equals(wildcard));
+        if (set.get(firstNonWild).compareTo(set.get(lastNonWild)) > 0)
             Collections.reverse(properSet);
-        if(setCheck(properSet) || runCheck(properSet))
+        if (setCheck(properSet) || runCheck(properSet))
             return true;
         return false;
     }
@@ -217,19 +248,19 @@ public class PontinhoHandler extends DeckHandler {
         Set<Suit> suitSet = new HashSet<Suit>();
         // Get the first non-wild card as the chosen value here
         int i;
-        for(i = 0; set.get(i).equals(wildcard); i++);
+        for (i = 0; set.get(i).equals(wildcard); i++);
         int chosenValue = set.get(i).value;
         int wildcardsUsed = 0;
 
         // Rule: All same number, must be exactly 3 different suits.
         // If using wildcard, must win round (unless used as its face value)
-        for(Card c : set) {
+        for (Card c : set) {
             // If it's a wildcard, and is not being played as its face value,
             // check if the rest of the played hand is good, but the wildcard
             // must have been used as a wildcard
-            if(c.equals(wildcard)){
+            if (c.equals(wildcard)) {
                 wildcardsUsed++;
-                if(c.value != chosenValue) {
+                if (c.value != chosenValue) {
                     tempGameEnd = true;
                     continue;
                 }
@@ -240,7 +271,7 @@ public class PontinhoHandler extends DeckHandler {
             // then add its suit anyways to see if it can count as a non-wildcard play
             // (while not updating wildcardFreeSuitSet)
             suitSet.add(c.suit);
-            if(suitSet.size() > 3 || c.value != chosenValue)
+            if (suitSet.size() > 3 || c.value != chosenValue)
                 return false;
         }
 
@@ -248,15 +279,15 @@ public class PontinhoHandler extends DeckHandler {
         // wildcardUsed in case a non-set wildcard was skipped)
         if (suitSet.size() == 3)
             return true;
-        
+
         // If the wildcardFreeSuitSet has more than 3 suits, it is automatically
         // disqualified
-        if(wildcardFreeSuitSet.size() > 3)
+        if (wildcardFreeSuitSet.size() > 3)
             return false;
-        
+
         // If suits can be added to wildcardFreeSuitSet to get it to 3,
         // then it's good but uses a wildcard
-        if(3 - wildcardFreeSuitSet.size() <= wildcardsUsed) {
+        if (3 - wildcardFreeSuitSet.size() <= wildcardsUsed) {
             tempGameEnd = true;
             return true;
         }
@@ -270,7 +301,7 @@ public class PontinhoHandler extends DeckHandler {
         // Keep picking cards until first non-wildcard is found
         // (If wildcard is played at an end, then the game must end)
         int nonWildIndex = 0;
-        while(set.get(nonWildIndex).equals(wildcard)){
+        while (set.get(nonWildIndex).equals(wildcard)) {
             nonWildIndex++;
             tempGameEnd = true;
         }
@@ -283,147 +314,157 @@ public class PontinhoHandler extends DeckHandler {
         int requiredEnd = 12; // For K at the end, lower if more wildcard are involved
 
         // Rule: All same suit, ascending order (A can be QKA or A23 but not KA2)
-        for(int i = nonWildIndex + 1; i < set.size(); i++) {
-            if(set.get(i).equals(wildcard)){
-                if(aceCheck){
+        for (int i = nonWildIndex + 1; i < set.size(); i++) {
+            if (set.get(i).equals(wildcard)) {
+                if (aceCheck) {
                     requiredEnd--;
                 }
                 curNum++;
                 continue;
             }
-            if(set.get(i).suit != chosenSuit) return false;
+            if (set.get(i).suit != chosenSuit)
+                return false;
             int newNum = set.get(i).value;
-            if(newNum != curNum + 1) {
-                if(aceCheck) {
-                    if(set.get(set.size() - 1).value != requiredEnd)
+            if (newNum != curNum + 1) {
+                if (aceCheck) {
+                    if (set.get(set.size() - 1).value != requiredEnd)
                         return false;
-                } else 
+                } else
                     return false;
             }
             aceCheck = false;
             curNum = newNum;
         }
 
-        if(set.get(set.size() - 1).equals(wildcard)) 
+        if (set.get(set.size() - 1).equals(wildcard))
             tempGameEnd = true;
 
         return true;
     }
 
+    /**
+     * Gets the index of the first rectangle in moveableRectangleList that
+     * contains the mouse (earlier in the priority sequence is selected first)
+     * @param mouseX
+     * @param mouseY
+     * @return
+     */
     private int getMoveableRectangleIndex(int mouseX, int mouseY) {
-        for(int i = 0; i < moveableRectangleList.size(); i++){
-            MultiCardRectangle cr = moveableRectangleList.get(i);
-            if(cr.mouseInRectangle(mouseX, mouseY))
+        for (int i = 0; i < moveableRectangleList.size(); i++) {
+            MultiCardRectangle cr = moveableRectangleList.get(
+                moveableRectanglePriorityList.get(i));
+            if (cr.mouseInRectangle(mouseX, mouseY))
                 return i;
         }
         return -1;
     }
 
-    private boolean selectedCardPicked = false;
-    private boolean outlinedCardPicked = false;
-    private boolean returnedCardPicked = false;
-    private Set<Integer> returnedCardsIndices = new HashSet<Integer>();
-
-    /**
-     * Picks up a rectangle to be moved if necessary
-     */
-    @Override 
+    @Override
     public void handleMousePress(int mouseX, int mouseY) {
-        if(playerArea.mouseInRectangle(mouseX, mouseY)){
-            if((pickedUpCardIndex = playerRect.hideCard(mouseX, mouseY)) != 0) {
+        // Picking up a card from the player area
+        if (playerArea.mouseInRectangle(mouseX, mouseY)) {
+            if ((pickedUpCardIndex = playerRect.hideCard(mouseX, mouseY)) != 0) {
                 cardOriginRect = playerRect;
-            } else if((pickedUpCardIndex = newSetRect.hideCard(mouseX, mouseY)) != 0) {
+            } else if ((pickedUpCardIndex = newSetRect.hideCard(mouseX, mouseY)) != 0) {
                 cardOriginRect = newSetRect;
-            } else 
+            } else
                 return;
             int yShift = pickedUpCardIndex > 0 ? 0 : (int) (-app.defaultVSpacing * 1.5);
-            pickedUpCardIndex = pickedUpCardIndex > 0 ? pickedUpCardIndex - 1 : - pickedUpCardIndex - 1;
+            pickedUpCardIndex = pickedUpCardIndex > 0 ? pickedUpCardIndex - 1 : -pickedUpCardIndex - 1;
 
-            pickedUpRect = new MultiOutlineRectangle((int) cardOriginRect.getMultiCardXPos(pickedUpCardIndex) + 1, (int) cardOriginRect.yCenter + yShift, 1.5f, new ArrayList<Card>(), Mode.REVEALED_SINGLE);
+            pickedUpRect = new MultiOutlineRectangle((int) cardOriginRect.getMultiCardXPos(pickedUpCardIndex) + 1,
+                    (int) cardOriginRect.getyCenter() + yShift, 1.5f, new ArrayList<Card>(), Mode.REVEALED_SINGLE);
             pickedUpRect.cards.add(cardOriginRect.cards.get(pickedUpCardIndex));
             pickedUpRect.calculateRectangle();
-            if(selectedCardPicked = (cardOriginRect.shownCardsIndices.contains(pickedUpCardIndex)))
+            if (selectedCardPicked = (cardOriginRect.shownCardsIndices.contains(pickedUpCardIndex)))
                 cardOriginRect.shownCardsIndices.remove(pickedUpCardIndex);
-            if(outlinedCardPicked = (cardOriginRect.outlinedCardsSet.contains(pickedUpCardIndex)))
+            if (outlinedCardPicked = (cardOriginRect.outlinedCardsSet.contains(pickedUpCardIndex)))
                 cardOriginRect.outlinedCardsSet.remove(pickedUpCardIndex);
-            if(cardOriginRect == playerRect && (returnedCardPicked = (returnedCardsIndices.contains(pickedUpCardIndex))))
+            if (cardOriginRect == playerRect
+                    && (returnedCardPicked = (returnedCardsIndices.contains(pickedUpCardIndex))))
                 returnedCardsIndices.remove(pickedUpCardIndex);
-            xOffset = pickedUpRect.xCenter - mouseX;
-            yOffset = pickedUpRect.yCenter - mouseY;
+            xOffset = pickedUpRect.getxCenter() - mouseX;
+            yOffset = pickedUpRect.getyCenter() - mouseY;
             return;
         }
+        // Picking up a rectangle from the play area
         int moveableRectIndex = getMoveableRectangleIndex(mouseX, mouseY);
-        if(moveableRectIndex != -1) {
+        if (moveableRectIndex != -1) {
             MultiCardRectangle cr = moveableRectangleList.get(moveableRectIndex);
             pickedUpRect = cr;
             // Make the newly-clicked rectangle appear on top
             moveableRectanglePriorityList.remove((Integer) moveableRectIndex);
             moveableRectanglePriorityList.add((Integer) moveableRectIndex);
-            xOffset = cr.xCenter - mouseX;
-            yOffset = cr.yCenter - mouseY;
+            xOffset = cr.getxCenter() - mouseX;
+            yOffset = cr.getyCenter() - mouseY;
             return;
         }
     }
 
     @Override
     public void handleMouseDrag(int mouseX, int mouseY) {
-        if(pickedUpRect != null) {
-            if(cardOriginRect == null)
-                pickedUpRect.updatePosition(mouseX + xOffset, mouseY+yOffset, playArea);
+        // Handling dragging cards around the player area
+        if (pickedUpRect != null) {
+            if (cardOriginRect == null)
+                pickedUpRect.updatePosition(mouseX + xOffset, mouseY + yOffset, playArea);
             else {
-                pickedUpRect.updatePosition(mouseX + xOffset, mouseY+yOffset, playerArea);
-                int newIndex = cardOriginRect.getMultiCardIndex(pickedUpRect.xCenter);
+                pickedUpRect.updatePosition(mouseX + xOffset, mouseY + yOffset, playerArea);
+                int newIndex = cardOriginRect.getMultiCardIndex(pickedUpRect.getxCenter());
                 // Cards shifted right
-                if(newIndex < cardOriginRect.hiddenCardIndex)
-                    for(int i = cardOriginRect.hiddenCardIndex - 1; i >= newIndex; i--){
+                if (newIndex < cardOriginRect.hiddenCardIndex)
+                    for (int i = cardOriginRect.hiddenCardIndex - 1; i >= newIndex; i--) {
                         cardOriginRect.cards.set(i + 1, cardOriginRect.cards.get(i));
                         shift(cardOriginRect.shownCardsIndices, i, 1);
                         shift(cardOriginRect.outlinedCardsSet, i, 1);
-                        if(cardOriginRect == playerRect)
+                        if (cardOriginRect == playerRect)
                             shift(returnedCardsIndices, i, 1);
-                    } 
+                    }
                 else
-                    for(int i = cardOriginRect.hiddenCardIndex + 1; i <= newIndex; i++) {
+                    for (int i = cardOriginRect.hiddenCardIndex + 1; i <= newIndex; i++) {
                         cardOriginRect.cards.set(i - 1, cardOriginRect.cards.get(i));
                         shift(cardOriginRect.shownCardsIndices, i, -1);
                         shift(cardOriginRect.outlinedCardsSet, i, -1);
-                        if(cardOriginRect == playerRect)
+                        if (cardOriginRect == playerRect)
                             shift(returnedCardsIndices, i, -1);
                     }
                 cardOriginRect.hiddenCardIndex = newIndex;
                 cardOriginRect.cards.set(newIndex, pickedUpRect.cards.get(0));
                 updateNewSet();
             }
-        }            
+        }
     }
 
     /**
      * If the element index is found in indexSet, shifts it left if dir == -1,
      * right if dir == 1 (other dir are undefined behavior)
+     * 
      * @param indexSet
      * @param index
-     * @param dir 1 if shifting right, -1 if shifting left
+     * @param dir      1 if shifting right, -1 if shifting left
      */
     private void shift(Set<Integer> indexSet, int index, int dir) {
-        if(indexSet.remove(index))
+        if (indexSet.remove(index))
             indexSet.add(index + dir);
     }
-
+    
+    // TODO Implement out-of-turn drawing from discard pile
     @Override
-    public boolean handleMouseClick(int mouseX, int mouseY){
-        if(moveMade || winningPlayerNumber != -1) return false;
+    public boolean handleMouseClick(int mouseX, int mouseY) {
+        // Disables click actions if the turn / round is over
+        if (moveMade || winningPlayerNumber != -1)
+            return false;
         illegalDiscard = false;
-        if((app.thisPlayerNumber + 1) % app.numPlayers == app.curPlayerNumber) 
+        if ((app.thisPlayerNumber + 1) % app.numPlayers == app.curPlayerNumber)
             return false;
         boolean notMyTurn = app.thisPlayerNumber != app.curPlayerNumber;
-        if(notMyTurn && !canDrawDiscard)
+        if (notMyTurn && !canDrawDiscard)
             return false;
         int selectedCardIndex;
         // Select card from playerRect branch
-        if((selectedCardIndex = playerRect.updateSelect(mouseX, mouseY)) != 0) {
+        if ((selectedCardIndex = playerRect.updateSelect(mouseX, mouseY)) != 0) {
             // Unselect card
-            if(selectedCardIndex < 0){
-                if(firstMove && newSetRect.cards.size() <= 2)
+            if (selectedCardIndex < 0) {
+                if (firstMove && newSetRect.cards.size() <= 2)
                     newSetRect.clear();
                 else {
                     selectedCardIndex = -(selectedCardIndex + 1);
@@ -431,10 +472,10 @@ public class PontinhoHandler extends DeckHandler {
                     newSetRect.cards.remove(removedCard);
                 }
                 updateNewSet();
-            // Select card
+                // Select card
             } else {
-                if(firstMove && newSetRect.cards.size() <= 0)
-                    if(discardRect.cards.isEmpty())
+                if (firstMove && newSetRect.cards.size() <= 0)
+                    if (discardRect.cards.isEmpty())
                         newSetRect.addOutlinedCard(wildcardRect.cards.get(0));
                     else
                         newSetRect.addOutlinedCard(discardRect.cards.get(discardRect.cards.size() - 1));
@@ -446,21 +487,19 @@ public class PontinhoHandler extends DeckHandler {
             return false;
         }
         // Select card from newSetRect branch
-        if((selectedCardIndex = newSetRect.updateSelect(mouseX, mouseY)) != 0) {
-            if(newSetRect.outlinedCardsSet.contains(--selectedCardIndex) || outlinedCardPicked) {
-                if(newSetRect.cards.get(selectedCardIndex).equals(wildcard)) {
+        if ((selectedCardIndex = newSetRect.updateSelect(mouseX, mouseY)) != 0) {
+            if (newSetRect.outlinedCardsSet.contains(--selectedCardIndex) || outlinedCardPicked) {
+                if (newSetRect.cards.get(selectedCardIndex).equals(wildcard)) {
                     returnedCardsIndices.add(playerRect.cards.size());
                     playerRect.addOutlinedCard(newSetRect.removeCard(selectedCardIndex));
-                    for(int i = newSetRect.cards.size(); i > selectedCardIndex; i--)
+                    for (int i = newSetRect.cards.size(); i > selectedCardIndex; i--)
                         shift(newSetRect.outlinedCardsSet, i, -1);
                 }
-            }
-            else {
-                if(firstMove && newSetRect.cards.size() <= 2) {
+            } else {
+                if (firstMove && newSetRect.cards.size() <= 2) {
                     newSetRect.clear();
                     playerRect.shownCardsIndices.clear();
-                }
-                else {
+                } else {
                     Card removedCard = newSetRect.removeCard(selectedCardIndex);
                     playerRect.shownCardsIndices.remove(playerRect.cards.indexOf(removedCard));
                 }
@@ -469,28 +508,29 @@ public class PontinhoHandler extends DeckHandler {
             return false;
         }
         // Cancel check
-        if (cancelButtonRect.mouseInRectangle(mouseX, mouseY)){
+        if (cancelButtonRect.mouseInRectangle(mouseX, mouseY)) {
             newSetRect.clear();
             updateNewSet();
             playerRect.shownCardsIndices.clear();
             List<Integer> sortedList = new ArrayList<Integer>(returnedCardsIndices);
             sortedList.sort(null);
-            for(int i = sortedList.size() - 1; i >= 0; i--)
+            for (int i = sortedList.size() - 1; i >= 0; i--)
                 playerRect.removeCard(sortedList.get(i));
             returnedCardsIndices.clear();
             selectedRectIndex = -1;
             return false;
         }
         // New set check
-        if(newSetValid && confirmButtonRect.mouseInRectangle(mouseX, mouseY)) {
-            if(!mustEnd && playerRect.outlinedCardsSet.isEmpty())
+        if (newSetValid && confirmButtonRect.mouseInRectangle(mouseX, mouseY)) {
+            if (!mustEnd && playerRect.outlinedCardsSet.isEmpty())
                 lastValidState = encodeGameState();
-            if(selectedRectIndex == -1){
-                MultiCardRectangle newRect = new MultiCardRectangle((int) newSetRect.xCenter, (int) newSetRect.yCenter, 1, new ArrayList<Card>(newSetRect.cards), Mode.REVEALED_ALL);
+            if (selectedRectIndex == -1) {
+                MultiCardRectangle newRect = new MultiCardRectangle((int) newSetRect.getxCenter(),
+                        (int) newSetRect.getyCenter(), 1, new ArrayList<Card>(newSetRect.cards), Mode.REVEALED_ALL);
                 newRect.updatePosition(playArea);
                 moveableRectanglePriorityList.add((Integer) moveableRectangleList.size());
                 moveableRectangleList.add(newRect);
-                if(firstMove && !discardRect.cards.isEmpty())
+                if (firstMove && !discardRect.cards.isEmpty())
                     discardRect.cards.remove(discardRect.cards.size() - 1);
             } else {
                 setRectList(moveableRectangleList.get(selectedRectIndex), newSetRect.cards);
@@ -500,19 +540,19 @@ public class PontinhoHandler extends DeckHandler {
             returnedCardsIndices.clear();
             removeSelectedCards();
             newSetRect.clear();
-            
-            if(tempGameEnd)
+
+            if (tempGameEnd)
                 mustEnd = true;
             tempGameEnd = false;
             firstMove = false;
             updateNewSet();
             boolean res;
-            if(res = playerRect.cards.isEmpty())
+            if (res = playerRect.cards.isEmpty())
                 resetRoundVariables();
             return res;
         }
         // First move draw check
-        if(firstMove) {
+        if (firstMove) {
             if (drawRect.mouseInRectangle(mouseX, mouseY)) {
                 newSetRect.clear();
                 playerRect.shownCardsIndices.clear();
@@ -524,13 +564,13 @@ public class PontinhoHandler extends DeckHandler {
                 firstMove = false;
                 return false;
             }
-        } 
+        }
         // Discard check
-        if(!firstMove && discardMarkerRect.mouseInRectangle(mouseX, mouseY) && newSetRect.cards.size() == 1) {
-            if(mustEnd && playerRect.cards.size() != 1) {
+        if (!firstMove && discardMarkerRect.mouseInRectangle(mouseX, mouseY) && newSetRect.cards.size() == 1) {
+            if (mustEnd && playerRect.cards.size() != 1) {
                 return false;
-            }  
-            if(!playerRect.outlinedCardsSet.isEmpty()) {
+            }
+            if (!playerRect.outlinedCardsSet.isEmpty()) {
                 illegalDiscard = true;
                 return false;
             }
@@ -543,17 +583,17 @@ public class PontinhoHandler extends DeckHandler {
             return true;
         }
         // Select existing set check
-        if(selectedRectIndex == -1 && (selectedRectIndex = getMoveableRectangleIndex(mouseX, mouseY)) != -1) {
-            for(Card addedCard : moveableRectangleList.get(selectedRectIndex).cards) 
-                newSetRect.addOutlinedCard(addedCard);            
+        if (selectedRectIndex == -1 && (selectedRectIndex = getMoveableRectangleIndex(mouseX, mouseY)) != -1) {
+            for (Card addedCard : moveableRectangleList.get(selectedRectIndex).cards)
+                newSetRect.addOutlinedCard(addedCard);
             updateNewSet();
             return false;
         }
         // Revert check
-        if(lastValidState != null && revertButtonRect.mouseInRectangle(mouseX, mouseY)) {
+        if (lastValidState != null && revertButtonRect.mouseInRectangle(mouseX, mouseY)) {
             int prevDiscardSize = discardRect.cards.size();
             decodeGameState(lastValidState);
-            if(discardRect.cards.size() != prevDiscardSize)
+            if (discardRect.cards.size() != prevDiscardSize)
                 firstMove = true;
             playerRect.shownCardsIndices.clear();
             newSetRect.clear();
@@ -583,24 +623,25 @@ public class PontinhoHandler extends DeckHandler {
         newSetValid = setIsValid(newSetRect.cards);
     }
 
+    /** Removes selected cards from playerRect */
     private void removeSelectedCards() {
-        for(int i = playerRect.cards.size() - 1; i >= 0; i--) {
-            if(playerRect.shownCardsIndices.remove(i))
+        for (int i = playerRect.cards.size() - 1; i >= 0; i--) {
+            if (playerRect.shownCardsIndices.remove(i))
                 playerRect.removeCard(i);
         }
     }
 
     @Override
     public void handleMouseRelease(int mouseX, int mouseY) {
-        if(cardOriginRect != null) {
-            int newIndex = cardOriginRect.getMultiCardIndex(pickedUpRect.xCenter);
-            if(cardOriginRect == playerRect && selectedCardPicked)
+        if (cardOriginRect != null) {
+            int newIndex = cardOriginRect.getMultiCardIndex(pickedUpRect.getxCenter());
+            if (cardOriginRect == playerRect && selectedCardPicked)
                 cardOriginRect.shownCardsIndices.add(newIndex);
             else if (cardOriginRect == newSetRect)
                 updateNewSet();
-            if(outlinedCardPicked)
+            if (outlinedCardPicked)
                 cardOriginRect.outlinedCardsSet.add(newIndex);
-            if(returnedCardPicked)
+            if (returnedCardPicked)
                 returnedCardsIndices.add(newIndex);
             cardOriginRect.hiddenCardIndex = -1;
         }
@@ -617,11 +658,11 @@ public class PontinhoHandler extends DeckHandler {
         drawRect.draw();
 
         playerRect.draw();
-        if(cardOriginRect == playerRect) {
+        if (cardOriginRect == playerRect) {
             ((MultiOutlineRectangle) pickedUpRect).drawSingle(outlinedCardPicked);
             playerRect.drawEnd();
         }
-        if(winningPlayerNumber != -1 || !moveMade && app.curPlayerNumber == app.thisPlayerNumber) {
+        if (winningPlayerNumber != -1 || !moveMade && app.curPlayerNumber == app.thisPlayerNumber) {
             app.fill(100f, 180f);
             textHeader.draw();
             app.textAlign(PConstants.CENTER, PConstants.CENTER);
@@ -630,70 +671,72 @@ public class PontinhoHandler extends DeckHandler {
             String printText;
             if (winningPlayerNumber == app.thisPlayerNumber)
                 printText = "You won the round! Total points: " + app.thisPlayer.getScore();
-            else if (winningPlayerNumber != -1) 
-                if(app.thisPlayer.getScore() >= 100)
+            else if (winningPlayerNumber != -1)
+                if (app.thisPlayer.getScore() >= 100)
                     printText = app.playerList.get(winningPlayerNumber).toString() + "won. You passed 100 points!";
                 else
                     printText = String.format("%s won. Your points: %d. Total points: %d",
-                        app.playerList.get(winningPlayerNumber).toString(),
-                        roundScore,
-                        app.thisPlayer.getScore());
-            else if(firstMove)
-                printText = "Your turn: Draw a card from the draw or discard deck";
-            else if(mustEnd)
+                            app.playerList.get(winningPlayerNumber).toString(),
+                            roundScore,
+                            app.thisPlayer.getScore());
+            else if (firstMove)
+                printText = "Your turn: Draw a card from the draw or use the discarded card";
+            else if (mustEnd)
                 printText = "Wildcard used! You must play all cards from hand, or revert";
             else if (illegalDiscard)
                 printText = "You have outlined cards in your hand that must be played!";
             else
                 printText = "Your turn: Discard a card to end turn";
-            app.text(printText, textHeader.xCenter, textHeader.yCenter);
+            app.text(printText, textHeader.getxCenter(), textHeader.getyCenter());
             app.textAlign(PConstants.LEFT);
         }
 
         app.fill(200f);
         revertRect.draw();
-        if(lastValidState != null)
+        if (lastValidState != null)
             revertButtonRect.draw();
 
-        if(newSetRect.cards.isEmpty()) {
+        if (newSetRect.cards.isEmpty()) {
             otherPlayerDisplay.draw();
             app.fill(0f);
             app.textSize(30f * app.scaleFactor);
-            
+
             int curPlayerPassed = 0;
-            for(int i = 0; i < otherPlayerRect.length; i++) {
+            for (int i = 0; i < otherPlayerRect.length; i++) {
                 otherPlayerRect[i].draw();
-                if(i == app.thisPlayerNumber)
+                if (i == app.thisPlayerNumber)
                     curPlayerPassed = 1;
                 String toPrint = app.playerList.get(i + curPlayerPassed).toString();
-                if(i + curPlayerPassed == app.curPlayerNumber)
+                if (i + curPlayerPassed == app.curPlayerNumber)
                     toPrint += " <-";
-                app.text(toPrint, app.displayWidth * 0.2f, otherPlayerRect[i].yTop + 0.01f * app.displayHeight, app.displayWidth * 0.1f, app.defaultHeight);
+                app.text(toPrint, app.displayWidth * 0.2f, otherPlayerRect[i].getyTop() + 0.01f * app.displayHeight,
+                        app.displayWidth * 0.1f, app.defaultHeight);
             }
         } else {
             newSetDisplay.draw();
             newSetRect.draw();
-            if(cardOriginRect == newSetRect)
+            if (cardOriginRect == newSetRect)
                 ((MultiOutlineRectangle) pickedUpRect).drawSingle(outlinedCardPicked);
-                newSetRect.drawEnd();
+            newSetRect.drawEnd();
             cancelButtonRect.draw();
-            if(newSetValid)
+            if (newSetValid)
                 confirmButtonRect.draw();
         }
-        
-        for(int i = 0; i < moveableRectangleList.size(); i++){
+
+        for (int i = 0; i < moveableRectangleList.size(); i++) {
             moveableRectangleList.get(moveableRectanglePriorityList.get(i)).draw();
         }
 
         discardMarkerRect.draw();
         discardRect.draw();
 
-        if(pickedUpRect != null && cardOriginRect == null) pickedUpRect.draw();
+        if (pickedUpRect != null && cardOriginRect == null)
+            pickedUpRect.draw();
     }
 
-    public String encodeStartingDeck(List<Card> deck) {
+    private String encodeStartingDeck(List<Card> deck) {
         String res = "";
-        for(int i = 0; i < deck.size(); i++){
+        for (int i = 0; i < deck.size(); i++) {
             res += deck.get(i).toHexString();
         }
         return res;
@@ -702,67 +745,95 @@ public class PontinhoHandler extends DeckHandler {
     /**
      * Encodes the current board state. Each string is separated
      * by the letter "t" and is a hexadecimal representation of:
-     * the current player number, this player's hand, the discard
-     * pile, and all the played sets
+     * this player's number, the number of cards in the draw deck,
+     * this player's hand, the top two cards of the discard pile, and all the played
+     * sets
+     * 
      * @return
      */
     @Override
-    public String encodeGameState(){
-        String res = Integer.toHexString(app.curPlayerNumber);        
+    public String encodeGameState() {
+        // This player's number
+        String res = Integer.toHexString(app.thisPlayerNumber) + "t";
+        // Size of draw deck
+        res += Integer.toHexString(drawRect.cards.size()) + "t";
+        // This player's hand
         res += encodeCardRect(playerRect) + "t";
-        res += encodeCardRect(discardRect) + "t";
-        for(int i = 0; i < moveableRectangleList.size(); i++) {
+        // Top two cards of the discard pile
+        for (int i = 0; i < 2; i++)
+            res += discardRect.cards.get(discardRect.cards.size() - 1 - i).toHexString();
+        res += "t";
+        // All played sets
+        for (int i = 0; i < moveableRectangleList.size(); i++)
             res += encodeCardRect(moveableRectangleList.get(i)) + "t";
-        }
         return res;
     }
 
     private String encodeCardRect(CardRectangle rect) {
         String res = "";
         List<Card> curCards = rect.cards;
-        for(int i = 0; i < curCards.size(); i++)
+        for (int i = 0; i < curCards.size(); i++)
             res += curCards.get(i).toHexString();
         return res;
     }
 
-    public List<Card> decodeStartingDeck(String startingDeck) {
+    private List<Card> decodeStartingDeck(String startingDeck) {
         List<Card> res = new ArrayList<Card>();
-        for(int i = 0; i < startingDeck.length(); i += 2) {
-            int cardVal = Integer.parseInt(startingDeck.substring(i, i+2), 16);
+        for (int i = 0; i < startingDeck.length(); i += 2) {
+            int cardVal = Integer.parseInt(startingDeck.substring(i, i + 2), 16);
             res.add(Card.toCard(cardVal));
         }
         return res;
     }
 
-    public void decodeGameState(String boardState) {
+    private void decodeGameState(String boardState) {
         app.noLoop();
-        int updatedPlayerNum = boardState.charAt(0) - '0';
-        if(updatedPlayerNum != app.curPlayerNumber)
+        String[] strLists = boardState.split("t", -1);
+        // Updated player number
+        int updatedPlayerNum = Integer.parseInt(strLists[0], 16);
+        if (updatedPlayerNum == app.thisPlayerNumber)
             canDrawDiscard = false;
-        if(updatedPlayerNum != app.thisPlayerNumber)
-            DeckHelper.draw(drawRect.cards);
-        String[] cardLists = boardState.substring(1).split("t", -1);
+        // Size of draw deck
+        int drawDeckSize = Integer.parseInt(strLists[1], 16);
+        if (drawDeckSize < drawRect.cards.size()) {
+            int iterations = drawRect.cards.size() - drawDeckSize;
+            for (int i = 0; i < iterations; i++) {
+                DeckHelper.draw(drawRect.cards);
+            }
+        }
+        // Updated player's hand
+        String updatedHand = strLists[2];
         List<Card> updatedList = app.playerList.get(updatedPlayerNum).hand;
         updatedList.clear();
-        updatedList.addAll(decodeCardList(cardLists[0]));
-        if(updatedList.isEmpty()) {
+        updatedList.addAll(decodeCardList(updatedHand));
+        if (updatedList.isEmpty()) {
             declareWinner(updatedPlayerNum);
         }
-        setRectList(discardRect, decodeCardList(cardLists[1]));
-        
+        // Top two cards of the discard pile
+        Card topCard = Card.toCard(Integer.parseInt(strLists[3].substring(2), 16));
+        Card botCard = Card.toCard(Integer.parseInt(strLists[3].substring(0, 2), 16));
+        // If top two cards are equal, no change needs to be made
+        if (!botCard.equals(discardRect.getCardFromTop(1)))
+            // This means that a card was added
+            discardRect.cards.add(topCard);
+        else if (!topCard.equals(discardRect.getCardFromTop(0)))
+            // This means that a card was swapped
+            discardRect.cards.set(discardRect.cards.size() - 1, topCard);
+        // All played sets
         int rectInd = 0;
-        while(rectInd < cardLists.length - 2) {
-            if(cardLists[rectInd + 2].isEmpty())
+        while (rectInd < strLists.length - 2) {
+            if (strLists[rectInd + 4].isEmpty())
                 break;
-
-            if(rectInd >= moveableRectangleList.size()){
+            if (rectInd >= moveableRectangleList.size()) {
                 moveableRectanglePriorityList.add(moveableRectangleList.size());
-                moveableRectangleList.add(new MultiCardRectangle((int) drawRect.xCenter, (int) drawRect.yCenter, 1, new ArrayList<Card>(), Mode.REVEALED_ALL));
+                moveableRectangleList.add(new MultiCardRectangle((int) drawRect.getxCenter(),
+                        (int) drawRect.getyCenter(), 1, new ArrayList<Card>(), Mode.REVEALED_ALL));
             }
-            setRectList(moveableRectangleList.get(rectInd), decodeCardList(cardLists[rectInd + 2]));
+            setRectList(moveableRectangleList.get(rectInd), decodeCardList(strLists[rectInd + 4]));
             rectInd++;
         }
-        for(int i = moveableRectangleList.size() - 1; i >= rectInd; i--) {
+        // If rectangles were removed
+        for (int i = moveableRectangleList.size() - 1; i >= rectInd; i--) {
             moveableRectangleList.remove(i);
             moveableRectanglePriorityList.remove(Integer.valueOf(i));
         }
@@ -781,7 +852,7 @@ public class PontinhoHandler extends DeckHandler {
 
     private List<Card> decodeCardList(String list) {
         List<Card> res = new ArrayList<Card>();
-        for(int i = 0; i < list.length(); i += 2) {
+        for (int i = 0; i < list.length(); i += 2) {
             res.add(Card.toCard(Integer.parseInt(list.substring(i, i + 2), 16)));
 
         }
@@ -797,23 +868,23 @@ public class PontinhoHandler extends DeckHandler {
     private void declareWinner(int winningPlayerNumber) {
         this.winningPlayerNumber = winningPlayerNumber;
         roundScore = calculateHandScore(playerRect.cards);
-        for(Player p : app.playerList) {
+        for (Player p : app.playerList) {
             p.incrementScore(calculateHandScore(p.hand));
         }
     }
 
     private int calculateHandScore(List<Card> hand) {
         int res = 0;
-        for(Card c : hand) {
+        for (Card c : hand) {
             // Wildcards in hand are worth 20 points
-            if(c.equals(wildcard)) {
+            if (c.equals(wildcard)) {
                 res += 20;
                 continue;
             }
-            switch(c.value) {
+            switch (c.value) {
                 // Aces worth 15 normally, or just 1 if your score is exactly 98
                 case 0:
-                    if(app.thisPlayer.getScore() == 98)
+                    if (app.thisPlayer.getScore() == 98)
                         res += 1;
                     else
                         res += 15;
@@ -851,9 +922,9 @@ class MultiOutlineRectangle extends MultiCardRectangle {
         outlineWidth = (int) (defaultOutlineWidth * scale);
         outlineHeight = (int) (defaultOutlineHeight * scale);
         horizontalOutlineOffset = (int) ((outlineWidth - defaultWidth) / 2);
-    }    
+    }
 
-    public static void setup() {
+    static void setup() {
         outlineImage = app.loadImage("app/src/main/resources/Poker Cards PNG/card_outline.png");
         defaultOutlineWidth = (int) (app.defaultWidth + 10 * app.scaleFactor);
         defaultOutlineHeight = (int) (app.defaultHeight + 10 * app.scaleFactor);
@@ -861,9 +932,9 @@ class MultiOutlineRectangle extends MultiCardRectangle {
 
     @Override
     public void draw() {
-        if(cards.isEmpty())
+        if (cards.isEmpty())
             return;
-        switch(drawMode){
+        switch (drawMode) {
             case REVEALED_SELECT:
                 drawMultiSelect(0);
                 return;
@@ -877,26 +948,31 @@ class MultiOutlineRectangle extends MultiCardRectangle {
     }
 
     private void drawMulti(int startIndex) {
-        for(int i = startIndex; i < cards.size(); i++){
-            if(i == hiddenCardIndex) return;
+        for (int i = startIndex; i < cards.size(); i++) {
+            if (i == hiddenCardIndex)
+                return;
             app.image(app.imageList[cards.get(i).hashCode()], xLeft + i * hSpacing, yTop, defaultWidth, defaultHeight);
-            if(outlinedCardsSet.contains(i))
-                app.image(outlineImage, xLeft - horizontalOutlineOffset + i * hSpacing, yCenter - outlineHeight / 2, outlineWidth, outlineHeight);
+            if (outlinedCardsSet.contains(i))
+                app.image(outlineImage, xLeft - horizontalOutlineOffset + i * hSpacing, yCenter - outlineHeight / 2,
+                        outlineWidth, outlineHeight);
         }
     }
 
     private void drawMultiSelect(int startIndex) {
-        for(int i = startIndex; i < cards.size(); i++){
-            if(i == hiddenCardIndex) return;
+        for (int i = startIndex; i < cards.size(); i++) {
+            if (i == hiddenCardIndex)
+                return;
             int offset = shownCardsIndices.contains(i) ? (int) vSpacing : 0;
-            app.image(app.imageList[cards.get(i).hashCode()], xLeft + i * hSpacing, yTop - offset, defaultWidth, defaultHeight);
-            if(outlinedCardsSet.contains(i))
-                app.image(outlineImage, xLeft - horizontalOutlineOffset + i * hSpacing, yCenter - outlineHeight / 2 - offset, outlineWidth, outlineHeight);
+            app.image(app.imageList[cards.get(i).hashCode()], xLeft + i * hSpacing, yTop - offset, defaultWidth,
+                    defaultHeight);
+            if (outlinedCardsSet.contains(i))
+                app.image(outlineImage, xLeft - horizontalOutlineOffset + i * hSpacing,
+                        yCenter - outlineHeight / 2 - offset, outlineWidth, outlineHeight);
         }
     }
 
-    public void drawEnd() {
-        switch(drawMode){
+    void drawEnd() {
+        switch (drawMode) {
             case REVEALED_ALL:
                 drawMulti(hiddenCardIndex + 1);
                 return;
@@ -911,31 +987,35 @@ class MultiOutlineRectangle extends MultiCardRectangle {
 
     /**
      * Removes the card at the given index while updating the outlinedCardsSet
+     * 
      * @param index
      * @return
      */
-    public Card removeCard(int index) {
-        if(outlinedCardsSet.remove(index));
-            for(int i = index + 1; i < cards.size(); i++)
-                if(outlinedCardsSet.remove(i))
-                    outlinedCardsSet.add(i - 1);
+    Card removeCard(int index) {
+        if (outlinedCardsSet.remove(index))
+            ;
+        for (int i = index + 1; i < cards.size(); i++)
+            if (outlinedCardsSet.remove(i))
+                outlinedCardsSet.add(i - 1);
         return cards.remove(index);
     }
 
-    public void addOutlinedCard(Card addedCard) {
+    void addOutlinedCard(Card addedCard) {
         outlinedCardsSet.add(cards.size());
         cards.add(addedCard);
     }
 
+    @Override
     public void clear() {
         outlinedCardsSet.clear();
         shownCardsIndices.clear();
         cards.clear();
     }
 
-    public void drawSingle(boolean outline) {
+    void drawSingle(boolean outline) {
         app.image(app.imageList[cards.get(0).hashCode()], xLeft, yTop, defaultWidth, defaultHeight);
-        if(outline)
-            app.image(outlineImage, xLeft - horizontalOutlineOffset, yCenter - outlineHeight / 2, outlineWidth, outlineHeight);
+        if (outline)
+            app.image(outlineImage, xLeft - horizontalOutlineOffset, yCenter - outlineHeight / 2, outlineWidth,
+                    outlineHeight);
     }
 }

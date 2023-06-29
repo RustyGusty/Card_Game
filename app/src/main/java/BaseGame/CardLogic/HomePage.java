@@ -43,6 +43,7 @@ public class HomePage extends DeckHandler {
     @Override
     public void draw() {
         app.textSize(50f);
+        app.color(255);
         String text = (app.waitingForGame()) 
             ? "Go to discord to join or host a game!"
             : "Waiting for host to start game";
