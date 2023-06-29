@@ -80,11 +80,16 @@ public final class Card implements Comparable<Card> {
         return res;
     }
 
-    public static Card toCard(int value) {
-        if(value >= 52) 
-            return new Card(value == 53);
+    /**
+     * Given the hash value of a Card, returns a new equivalent card
+     * @param hashValue
+     * @return
+     */
+    public static Card toCard(int hashValue) {
+        if(hashValue >= 52) 
+            return new Card(hashValue == 53);
         
-        return new Card(value / 4, Suit.getSuit(value % 4));
+        return new Card(hashValue / 4, Suit.getSuit(hashValue % 4));
     }
 
 }

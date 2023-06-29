@@ -1,4 +1,4 @@
-package BaseGame;
+package BaseGame.Rectangles;
 
 /**
  * Different drawing modes for a Rectangle

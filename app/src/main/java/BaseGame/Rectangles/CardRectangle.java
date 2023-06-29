@@ -2,7 +2,6 @@ package BaseGame.Rectangles;
 
 import java.util.List;
 
-import BaseGame.Mode;
 import BaseGame.Cards.Card;
 
 /**
@@ -13,9 +12,8 @@ public class CardRectangle extends Rectangle{
 
     /** Index '0' is treated as the bottom */
     public final List<Card> cards;
-    public Mode drawMode;
-
-    public float scale;
+    protected Mode drawMode;
+    protected float scale;
     
     /**
      * Rectangle with its center hFactor and vFactor of the way from
@@ -67,6 +65,16 @@ public class CardRectangle extends Rectangle{
                 return;
             default:
         }
+    }
+
+    /**
+     * Gets the card at position index counting from the top down
+     * (or from the end of the list), with index 0 being the top card
+     * @param index Index from the top of the desired Card
+     * @return Card as indexed from the top
+     */
+    public Card getCardFromTop(int index){
+        return cards.get(cards.size() - 1 - index);
     }
 
     private void drawSingle(int index) {

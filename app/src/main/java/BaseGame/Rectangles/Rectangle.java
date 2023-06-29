@@ -5,15 +5,47 @@ import BaseGame.App;
 public class Rectangle {
     public static App app;
 
-    public float width;
-    public float height;
-    public float xCenter;
-    public float yCenter;
+    protected float width;
+    protected float height;
+    protected float xCenter;
+    protected float yCenter;
+    
+    protected float xRight;
+    protected float yBot;
+    protected float xLeft;
+    protected float yTop;
 
-    public float xRight;
-    public float yBot;
-    public float xLeft;
-    public float yTop;
+    public float getWidth() {
+        return width;
+    }
+
+    public float getHeight() {
+        return height;
+    }
+
+    public float getxCenter() {
+        return xCenter;
+    }
+
+    public float getyCenter() {
+        return yCenter;
+    }
+
+    public float getxRight() {
+        return xRight;
+    }
+
+    public float getyBot() {
+        return yBot;
+    }
+
+    public float getxLeft() {
+        return xLeft;
+    }
+
+    public float getyTop() {
+        return yTop;
+    }
 
     public Rectangle(float hFactor, float vFactor, float width, float height){
         this(hFactor, vFactor);
