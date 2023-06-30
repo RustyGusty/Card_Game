@@ -354,7 +354,7 @@ public class PontinhoHandler extends DeckHandler {
             MultiCardRectangle cr = moveableRectangleList.get(
                 moveableRectanglePriorityList.get(i));
             if (cr.mouseInRectangle(mouseX, mouseY))
-                return i;
+                return moveableRectanglePriorityList.get(i);
         }
         return -1;
     }
@@ -760,7 +760,7 @@ public class PontinhoHandler extends DeckHandler {
         // This player's hand
         res += encodeCardRect(playerRect) + "t";
         // Top two cards of the discard pile
-        for (int i = 0; i < 2; i++)
+        for (int i = 0; i < 2 && i < discardRect.cards.size(); i++)
             res += discardRect.cards.get(discardRect.cards.size() - 1 - i).toHexString();
         res += "t";
         // All played sets
@@ -810,15 +810,30 @@ public class PontinhoHandler extends DeckHandler {
             declareWinner(updatedPlayerNum);
         }
         // Top two cards of the discard pile
-        Card topCard = Card.toCard(Integer.parseInt(strLists[3].substring(2), 16));
-        Card botCard = Card.toCard(Integer.parseInt(strLists[3].substring(0, 2), 16));
-        // If top two cards are equal, no change needs to be made
-        if (!botCard.equals(discardRect.getCardFromTop(1)))
-            // This means that a card was added
-            discardRect.cards.add(topCard);
-        else if (!topCard.equals(discardRect.getCardFromTop(0)))
-            // This means that a card was swapped
-            discardRect.cards.set(discardRect.cards.size() - 1, topCard);
+
+        // If only 1 card, then either swap or add depending on current size
+        if (strLists[3].length() <= 2) {
+            Card c = Card.toCard(Integer.parseInt(strLists[3], 16));
+            if (discardRect.cards.size() <= 0) 
+                discardRect.cards.add(c);
+            else
+                discardRect.cards.set(0, c);
+        } else {
+            Card topCard = Card.toCard(Integer.parseInt(strLists[3].substring(0, 2), 16));
+            // If only 1 card existed in the discard pile, then add the card
+            if (discardRect.cards.size() <= 1) {
+                discardRect.cards.add(topCard);
+            } else {
+                Card botCard = Card.toCard(Integer.parseInt(strLists[3].substring(2), 16));
+                // If top two cards are equal, no change needs to be made
+                if (!botCard.equals(discardRect.getCardFromTop(1)))
+                    // If bottom card is different, a card was added
+                    discardRect.cards.add(topCard);
+                else if (!topCard.equals(discardRect.getCardFromTop(0)))
+                    // If top card is different, a card was swapped
+                    discardRect.cards.set(discardRect.cards.size() - 1, topCard);
+            }
+        }
         // All played sets
         int rectInd = 0;
         while (rectInd < strLists.length - 2) {
