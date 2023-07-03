@@ -219,6 +219,7 @@ public class App extends PApplet {
         for(int i = 0; i < numPlayers; i++) 
             if(playerList.get(i).isPlayer(name)) {
                 playerList.remove(i);
+                numPlayers--;
                 return true;
             }
         return false;

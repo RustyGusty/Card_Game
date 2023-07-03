@@ -15,6 +15,10 @@ public class CardRectangle extends Rectangle{
     protected Mode drawMode;
     protected float scale;
     
+    public float getScale() {
+        return scale;
+    }
+
     /**
      * Rectangle with its center hFactor and vFactor of the way from
      * left to right and top to bottom respectively at the given scale
