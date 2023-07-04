@@ -135,7 +135,7 @@ public class PontinhoHandler extends DeckHandler {
 
     @Override
     public String initializeDeck() {
-        drawRect = new CardRectangle(0.5f, 0.2f, 1.5f, DeckHelper.createDeck(2, 0), Mode.FLIPPED_SINGLE);
+        drawRect = new CardRectangle(0.5f, 0.25f, 1.5f, DeckHelper.createDeck(2, 0), Mode.FLIPPED_SINGLE);
         Collections.shuffle(drawRect.cards);
         startingDeck = encodeStartingDeck(drawRect.cards);
         return startingDeck;
@@ -145,7 +145,7 @@ public class PontinhoHandler extends DeckHandler {
     public void initializeDeck(String startingDeck) {
         if (this.startingDeck == null) {
             this.startingDeck = startingDeck;
-            drawRect = new CardRectangle(0.5f, 0.2f, 1.5f, decodeStartingDeck(startingDeck), Mode.FLIPPED_SINGLE);
+            drawRect = new CardRectangle(0.5f, 0.25f, 1.5f, decodeStartingDeck(startingDeck), Mode.FLIPPED_SINGLE);
         }
     }
 
@@ -167,15 +167,16 @@ public class PontinhoHandler extends DeckHandler {
         wildcardSet.add(DeckHelper.draw(drawRect.cards));
         wildcardRect = new CardRectangle(0.5f, 0.15f, 1.5f, wildcardSet, Mode.REVEALED_SINGLE);
         playerRect = new MultiOutlineRectangle((int) (0.65 * app.displayWidth),
-                app.displayHeight - (int) (1.1 * app.defaultHeight), 1.5f, app.thisPlayer.hand, Mode.REVEALED_SELECT);
+                app.displayHeight - (int) (1.1 * app.defaultHeight),
+                1.5f, app.thisPlayer.hand, Mode.REVEALED_SELECT);
         otherPlayerRect = new MultiCardRectangle[app.numPlayers - 1];
         int index = 0;
         for (int i = 0; i < app.numPlayers; i++) {
             if (i == app.thisPlayerNumber)
                 continue;
             otherPlayerRect[index] = new MultiCardRectangle((int) (0.1 * app.displayWidth),
-                    (int) (app.displayHeight - app.defaultHeight * (0.6 * index + 0.45)), 0.5f,
-                    app.playerList.get(i).hand, Mode.FLIPPED_ALL);
+                    (int) (app.displayHeight - app.defaultHeight * (0.6 * index + 0.45)),
+                    0.5f, app.playerList.get(i).hand, Mode.FLIPPED_ALL);
             index++;
         }
 
@@ -211,7 +212,7 @@ public class PontinhoHandler extends DeckHandler {
                 (int) (app.displayHeight - 44 * app.scaleFactor), 120 * app.scaleFactor, 44 * app.scaleFactor,
                 "app/src/main/resources/Button/unpressed_revert.png");
 
-        discardRect = new CardRectangle(0.65f, 0.19f, 1, new ArrayList<Card>(), Mode.REVEALED_SINGLE);
+        discardRect = new CardRectangle(0.65f, 0.23f, 1.4f, new ArrayList<Card>(), Mode.REVEALED_SINGLE);
         discardMarkerRect = new PictureRectangle(0.65f, 0.2f, 126 * app.scaleFactor, 202 * app.scaleFactor,
                 "app/src/main/resources/discard_pile.png");
 

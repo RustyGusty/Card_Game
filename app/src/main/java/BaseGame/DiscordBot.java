@@ -3,23 +3,37 @@ package BaseGame;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import BaseGame.CardLogic.HomePage;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
+import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.events.session.ReadyEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
+import net.dv8tion.jda.api.interactions.commands.Command;
+import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
+import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 
 public class DiscordBot extends ListenerAdapter{
-    
+
+    private static final String GAME_OPTIONS[];
+
+    static {
+        GAME_OPTIONS = new String[1];
+        GAME_OPTIONS[0] = "pontinho";
+    }
+
     private static App app;
     private static String user;
     private String currentGame;
@@ -43,8 +57,10 @@ public class DiscordBot extends ListenerAdapter{
                 System.out.println(user + " logged in with ping: " + ping)
             );
 
+            OptionData hostOptions = new OptionData(OptionType.STRING, "name", "Name of game to play (use autocomplete)", true, true);
+
             jda.updateCommands().addCommands(
-                Commands.slash("host_pontinho", "Host a game of Pontinho"),
+                Commands.slash("host", "Host a game of Pontinho").addOptions(hostOptions),
                 Commands.slash("start_game", "Start the game as the host"),
                 Commands.slash("reset", "Cancels all hosted and queued games"),
                 Commands.slash("next_round", "Host starts the next round of the game")
@@ -122,8 +138,8 @@ public class DiscordBot extends ListenerAdapter{
     public void onSlashCommandInteraction(SlashCommandInteractionEvent event) {
         curChannel = event.getChannel();
         switch (event.getName()) {
-            case "host_pontinho":  
-                hostGame(event, "pontinho");
+            case "host":  
+                hostGame(event);
                 break;
             case "start_game":
                 startHostGame(event);
@@ -194,9 +210,21 @@ public class DiscordBot extends ListenerAdapter{
      * @param event 
      * @param game 
      */
-    private void hostGame(SlashCommandInteractionEvent event, String game) {
+    private void hostGame(SlashCommandInteractionEvent event) {
+        
         if(event.getUser().getName().equals(user)) {
-            currentGame = game;
+            String game = event.getOption("name").getAsString().toLowerCase();
+            currentGame = null;
+            for(String gameOption : GAME_OPTIONS) 
+                if(gameOption.equals(game)) {
+                    currentGame = gameOption;
+                    break;
+                }
+            if(currentGame == null) {
+                event.reply(event.getOption("name").getAsString() + " is not a valid game!")
+                .setEphemeral(true).queue();
+                return;
+            }
             app.hostGame(user, game);
             event.reply(user + " has hosted a game!")
                 .addActionRow(Button.primary(String.format("%s:%s", user, currentGame), "Join game!"))
@@ -235,5 +263,16 @@ public class DiscordBot extends ListenerAdapter{
 
     public void processMove(String encodeGameState) {
         curChannel.sendMessage("Next Turn: P" + app.curPlayerNumber + "z" + encodeGameState).queue();
+    }
+
+    @Override
+    public void onCommandAutoCompleteInteraction(CommandAutoCompleteInteractionEvent event) {
+        if (event.getName().equals("host") && event.getFocusedOption().getName().equals("name")) {
+            List<Command.Choice> options = Stream.of(GAME_OPTIONS)
+                    .filter(word -> word.startsWith(event.getFocusedOption().getValue())) // only display words that start with the user's current input
+                    .map(word -> new Command.Choice(word, word)) // map the words to choices
+                    .collect(Collectors.toList());
+            event.replyChoices(options).queue();
+        }
     }
 }

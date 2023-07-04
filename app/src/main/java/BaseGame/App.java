@@ -253,6 +253,7 @@ public class App extends PApplet {
         startingPlayerNumber = (startingPlayerNumber + 1) % numPlayers;
         curPlayerNumber = startingPlayerNumber;
         noLoop();
+        draw();
         curGameHandler.setup();
         loop();
     }
