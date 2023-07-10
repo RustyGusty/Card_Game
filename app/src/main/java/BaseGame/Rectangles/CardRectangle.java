@@ -85,7 +85,28 @@ public class CardRectangle extends Rectangle{
         app.image(app.imageList[index], xLeft, yTop, width, height);
     }
 
+    /**
+     * Removes all elements from the CardRectangle's cards List
+     */
     public void clear() {
         cards.clear();
+    }
+
+    /**
+     * Returns the card from the CardRectangle's cards List at index
+     * 
+     * @param index index of the element to return
+     * @return the Card at position index
+     */
+    public Card get(int index) {
+        return cards.get(index);
+    }
+
+    /**
+     * Appends the specified card to the CardRectangle's cards list 
+     * @param c Card to be appended to the list
+     */
+    public void add(Card c) {
+        cards.add(c);
     }
 }

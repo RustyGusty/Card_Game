@@ -27,6 +27,10 @@ public class App extends PApplet {
     private int startingPlayerNumber = 0;
     public int minPlayerCount;
 
+    /**
+     * Float to multiply all widths and heights for differing resolutions based on a
+     * default of 1920x1080 screen
+     */
     public float scaleFactor;
     /** Default width of a card */
     public int defaultWidth; // = 100
@@ -36,7 +40,7 @@ public class App extends PApplet {
     public int defaultHSpacing; // = 15
     /** Default vertical spacing for selected cards */
     public int defaultVSpacing; // = 40
-    
+
     public PImage imageList[];
     /** Index of the card back in imageList */
     public int cardBackIndex;
@@ -45,7 +49,6 @@ public class App extends PApplet {
     public List<Player> playerList = new ArrayList<Player>();
 
     public DiscordBot bot;
-
 
     @Override
     public void settings() {
@@ -67,7 +70,8 @@ public class App extends PApplet {
 
         imageList = new PImage[13 * 4 + 3];
         for (Suit s : Suit.values()) {
-            imageList[s.getValue()] = loadImage("app/src/main/resources/Poker Cards PNG/ace_of_" + s.toString() + ".png");
+            imageList[s.getValue()] = loadImage(
+                    "app/src/main/resources/Poker Cards PNG/ace_of_" + s.toString() + ".png");
 
             for (int i = 1; i < 10; i++)
                 imageList[i * 4 + s.getValue()] = loadImage(
@@ -87,7 +91,7 @@ public class App extends PApplet {
         try {
             String user = new String(Files.readAllBytes(Paths.get("misc/username.txt")), StandardCharsets.UTF_8).trim();
             DiscordBot.initializeBot(this, user);
-        } catch (Exception e){
+        } catch (Exception e) {
             System.out.println("username.txt not found: Text file with your discord username only");
             exit();
             System.exit(1);
@@ -104,7 +108,7 @@ public class App extends PApplet {
     }
 
     public void queueGame(String game) {
-        switch(game){
+        switch (game) {
             case "pontinho":
                 queuedGameHandler = new PontinhoHandler(this);
                 break;
@@ -114,7 +118,7 @@ public class App extends PApplet {
         }
     }
 
-    public void addPlayer(String player){
+    public void addPlayer(String player) {
         playerList.add(new Player(player, numPlayers++));
     }
 
@@ -141,7 +145,7 @@ public class App extends PApplet {
 
     @Override
     public void mouseClicked() {
-        if(curGameHandler.handleMouseClick(mouseX, mouseY)) {
+        if (curGameHandler.handleMouseClick(mouseX, mouseY)) {
             bot.processMove(curGameHandler.encodeGameState());
         }
     }
@@ -158,7 +162,7 @@ public class App extends PApplet {
     /**
      * Picks up a rectangle to be moved if necessary
      */
-    @Override 
+    @Override
     public void mousePressed() {
         curGameHandler.handleMousePress(mouseX, mouseY);
     }
@@ -170,7 +174,7 @@ public class App extends PApplet {
 
     @Override
     public void mouseDragged() {
-        curGameHandler.handleMouseDrag(mouseX, mouseY);          
+        curGameHandler.handleMouseDrag(mouseX, mouseY);
     }
 
     @Override
@@ -180,11 +184,12 @@ public class App extends PApplet {
     }
 
     public static void main(String[] args) {
-        String PAppletArgs[] = {"--present"};
+        String PAppletArgs[] = { "--present" };
         PApplet.main("BaseGame.App", PAppletArgs);
     }
 
-    public App(){}
+    public App() {
+    }
 
     public App(int x) {
         surface = initSurface();
@@ -196,7 +201,7 @@ public class App extends PApplet {
 
     public String playerListToString() {
         String res = "";
-        for(Player p : playerList) {
+        for (Player p : playerList) {
             res += p.toString() + "\n";
         }
         return res;
@@ -205,10 +210,10 @@ public class App extends PApplet {
     public void makePlayerList(String stringList, String user) {
         String[] playerNames = stringList.split("\n");
         numPlayers = playerNames.length;
-        for(int i = 0; i < numPlayers; i++) {
+        for (int i = 0; i < numPlayers; i++) {
             String name = playerNames[i].substring(10);
             playerList.add(new Player(name, i));
-            if(playerList.get(i).isPlayer(user)) {
+            if (playerList.get(i).isPlayer(user)) {
                 thisPlayerNumber = i;
                 thisPlayer = playerList.get(i);
             }
@@ -216,8 +221,8 @@ public class App extends PApplet {
     }
 
     public boolean removePlayer(String name) {
-        for(int i = 0; i < numPlayers; i++) 
-            if(playerList.get(i).isPlayer(name)) {
+        for (int i = 0; i < numPlayers; i++)
+            if (playerList.get(i).isPlayer(name)) {
                 playerList.remove(i);
                 numPlayers--;
                 return true;
@@ -258,4 +263,3 @@ public class App extends PApplet {
         loop();
     }
 }
-
