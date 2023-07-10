@@ -11,7 +11,7 @@ import BaseGame.CardLogic.HomePage;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.entities.User;
-import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
+import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
@@ -25,7 +25,7 @@ import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 
-public class DiscordBot extends ListenerAdapter{
+public class DiscordBot extends ListenerAdapter {
 
     private static final String GAME_OPTIONS[];
 
@@ -36,13 +36,13 @@ public class DiscordBot extends ListenerAdapter{
 
     private static App app;
     private static String user;
+    private static TextChannel privateChannel;
     private String currentGame;
-    private MessageChannel curChannel;
 
     public static void initializeBot(App app, String user) {
         DiscordBot.app = app;
         DiscordBot.user = user;
-        
+
         try {
             String token = new String(Files.readAllBytes(Paths.get("misc/token.txt")), StandardCharsets.UTF_8).trim();
 
@@ -51,22 +51,27 @@ public class DiscordBot extends ListenerAdapter{
                     .enableIntents(GatewayIntent.MESSAGE_CONTENT)
                     .enableIntents(GatewayIntent.GUILD_MESSAGES)
                     .build();
-            
-            jda.getRestPing().queue(ping ->
-                // shows ping in milliseconds
-                System.out.println(user + " logged in with ping: " + ping)
-            );
 
-            OptionData hostOptions = new OptionData(OptionType.STRING, "name", "Name of game to play (use autocomplete)", true, true);
+            jda.getRestPing().queue(ping ->
+            // shows ping in milliseconds
+            System.out.println(user + " logged in with ping: " + ping));
+
+            OptionData hostOptions = new OptionData(OptionType.STRING, "name",
+                    "Name of game to play (use autocomplete)", true, true);
 
             jda.updateCommands().addCommands(
-                Commands.slash("host", "Host a game of Pontinho").addOptions(hostOptions),
-                Commands.slash("start_game", "Start the game as the host"),
-                Commands.slash("reset", "Cancels all hosted and queued games"),
-                Commands.slash("next_round", "Host starts the next round of the game")
-                ).queue();
+                    Commands.slash("host", "Host a game of Pontinho").addOptions(hostOptions),
+                    Commands.slash("start_game", "Start the game as the host"),
+                    Commands.slash("reset", "Cancels all hosted and queued games"),
+                    Commands.slash("next_round", "Host starts the next round of the game")).queue();
 
             jda.awaitReady();
+            List<TextChannel> tempList = jda.getTextChannelsByName("priv-bot-channel", true);
+            if (tempList.isEmpty()) {
+                throw new Exception("Text channel named \"priv-bot-channel\" not found");
+            }
+            privateChannel = tempList.get(0);
+            privateChannel.sendMessage(user + " has logged in successfully!").queue();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -81,39 +86,41 @@ public class DiscordBot extends ListenerAdapter{
     public void onMessageReceived(MessageReceivedEvent event) {
         User author = event.getAuthor();
         String message = event.getMessage().getContentRaw();
-        if(author.isBot()) {
-            if(message.startsWith("Next Turn:")) {
-                makeMove(message);
-            } else if(message.startsWith("A game has been started by")) {
-                startNonHostGame(message);
-            } else if (message.startsWith("Next round started by")) {
+        if (author.isBot()
+                && event.getChannel().getName().equals("priv-bot-channel")
+                && message.startsWith("$")) {
+            message = message.substring(1);
+            if (message.startsWith("next_turn")) {
+                makeMove(message.substring(9));
+            } else if (message.startsWith("game_start")) {
+                startNonHostGame(message.substring(10));
+            } else if (message.startsWith("new_round")) {
                 startNextRound(message);
             }
             return;
         }
     }
 
+    // USERNAME->ID->Player\nList
     private void startNonHostGame(String message) {
-        if(app.thisPlayerNumber == -1) {
-            message = message.substring(message.indexOf("\n") + 1);
-            String args[] = message.split("\n\n");
-            app.makePlayerList(args[0], user);
-            String initialDeck = args[1].substring(args[1].indexOf(":"));
-            initialDeck = initialDeck.substring(2);
-            app.startGame(initialDeck);
+        String args[] = message.split("->"); // [host, game ID, Player List]
+        if (app.thisPlayerNumber == -1 && app.isHost(args[0])) {
+            app.makePlayerList(args[2], user);
+            app.startGame(args[1]);
         }
     }
 
     private void startNextRound(String message) {
-        String[] strList = message.split(":");
-        String deck = strList[strList.length - 1].substring(1);
-        app.nextRound(deck);
+        String[] args = message.split("->");
+        if(app.isHost(args[0])) {
+            app.nextRound(args[1]);
+        }
     }
 
-
     private void makeMove(String message) {
-        String[] move = message.split("z");
-        app.makeMove(move[move.length - 1]);
+        String args[] = message.split("->"); // [host, move]
+        if(app.isHost(args[0]))
+            app.makeMove(args[1]);
     }
 
     @Override
@@ -122,10 +129,10 @@ public class DiscordBot extends ListenerAdapter{
         String host = args[0];
         // Joiner branch: Set up the correct DeckHandler
         if (!host.equals(user)) {
-            if(event.getUser().getName().equals(user)){
-                if(app.waitingForGame()) {
+            if (event.getUser().getName().equals(user)) {
+                if (app.waitingForGame()) {
                     currentGame = args[1];
-                    app.queueGame(currentGame);
+                    app.queueGame(currentGame, host);
                 }
             }
             return;
@@ -136,9 +143,8 @@ public class DiscordBot extends ListenerAdapter{
 
     @Override
     public void onSlashCommandInteraction(SlashCommandInteractionEvent event) {
-        curChannel = event.getChannel();
         switch (event.getName()) {
-            case "host":  
+            case "host":
                 hostGame(event);
                 break;
             case "start_game":
@@ -156,102 +162,108 @@ public class DiscordBot extends ListenerAdapter{
     /**
      * The host starts the game and sends a list of all the players
      * and the starting deck to everyone
+     * 
      * @param event
      */
     private void startHostGame(SlashCommandInteractionEvent event) {
-        if(event.getUser().getName().equals(user)) {
-            if(!isHost()) {
+        if (event.getUser().getName().equals(user)) {
+            if (!isHost()) {
                 event.reply("You are not a host!").setEphemeral(true).queue();
                 return;
             }
-            if(app.numPlayers <= 1){
+            if (app.numPlayers <= 1) {
                 event.reply(String.format("Need %d+ players to start. Currently have: %d",
-                app.minPlayerCount, app.numPlayers)).setEphemeral(true).queue();
+                        app.minPlayerCount, app.numPlayers)).setEphemeral(true).queue();
                 return;
             }
             String initialDeck = app.getQueuedStartingDeck();
             app.startGame(initialDeck);
-            event.reply(String.format("A game has been started by %s!\n%s\nGame ID: %s",
-            user,
-            app.playerListToString(),
-            initialDeck)).queue();
+            event.reply(String.format("A game has been started by %s!\n%s",
+                    user,
+                    app.playerListToString())).queue();
+            privateChannel.sendMessage(String.format("$game_start%s->%s->%s",
+                    user,
+                    initialDeck,
+                    app.playerListToString())).queue();
         }
     }
 
     /**
      * Called only on the host's seession, the host adds the user of the button
-     * to their game, unless the game has already started or the player is already in
+     * to their game, unless the game has already started or the player is already
+     * in
+     * 
      * @param event
      */
     private void addPlayerToHost(ButtonInteractionEvent event) {
-        if(!app.curGameHandler.getClass().equals(HomePage.class)) {
+        if (!app.curGameHandler.getClass().equals(HomePage.class)) {
             event.reply("The game has already started!").setEphemeral(true).queue();
             return;
         }
-        for(Player pl : app.playerList) 
-            if(pl.isPlayer(event.getUser().getName())) {
+        for (Player pl : app.playerList)
+            if (pl.isPlayer(event.getUser().getName())) {
                 event.reply("You are already in this game!").setEphemeral(true).queue();
                 return;
             }
-        if(app.waitingForGame()) {
+        if (app.waitingForGame()) {
             event.reply("That player is not currently hosting a game!").setEphemeral(true).queue();
             return;
         }
         app.addPlayer(event.getUser().getName());
         event.reply(String.format("%s has successfully joined %s's game!",
-            event.getUser().getName(),
-            user
-            )).queue();
+                event.getUser().getName(),
+                user)).queue();
     }
 
     /**
      * The caller of /hostPontinho hosts the game and creates a button
      * with their name and the game as the button id
-     * @param event 
-     * @param game 
+     * 
+     * @param event
+     * @param game
      */
     private void hostGame(SlashCommandInteractionEvent event) {
-        
-        if(event.getUser().getName().equals(user)) {
+
+        if (event.getUser().getName().equals(user)) {
             String game = event.getOption("name").getAsString().toLowerCase();
             currentGame = null;
-            for(String gameOption : GAME_OPTIONS) 
-                if(gameOption.equals(game)) {
+            for (String gameOption : GAME_OPTIONS)
+                if (gameOption.equals(game)) {
                     currentGame = gameOption;
                     break;
                 }
-            if(currentGame == null) {
+            if (currentGame == null) {
                 event.reply(event.getOption("name").getAsString() + " is not a valid game!")
-                .setEphemeral(true).queue();
+                        .setEphemeral(true).queue();
                 return;
             }
             app.hostGame(user, game);
             event.reply(user + " has hosted a game!")
-                .addActionRow(Button.primary(String.format("%s:%s", user, currentGame), "Join game!"))
-                .queue();
+                    .addActionRow(Button.primary(String.format("%s:%s", user, currentGame), "Join game!"))
+                    .queue();
         }
     }
 
     private void reset(SlashCommandInteractionEvent event) {
-        if(event.getUser().getName().equals(user)){
+        if (event.getUser().getName().equals(user)) {
             app.reset();
             event.reply(user + " successfully cancelled their games.").queue();
-        } else if (isHost()){
+        } else if (isHost()) {
             app.removePlayer(event.getUser().getName());
         }
     }
 
-    private void nextRound(SlashCommandInteractionEvent event) { 
-        if(event.getUser().getName().equals(user)) {
-            if(!isHost())
+    private void nextRound(SlashCommandInteractionEvent event) {
+        if (event.getUser().getName().equals(user)) {
+            if (!isHost())
                 event.reply("You are not a host!").setEphemeral(true).queue();
             else {
-                if(!app.roundOver())
+                if (!app.roundOver())
                     event.reply("The round is not over yet!").setEphemeral(true).queue();
                 else {
-                    event.reply(String.format("Next round started by %s!\n\nGame ID: %s",
-                    user,
-                    app.initializeDeck())).queue();
+                    event.reply(String.format("$new_round%s->%s",
+                            user,
+                            app.initializeDeck())).queue();
                 }
             }
         }
@@ -262,14 +274,15 @@ public class DiscordBot extends ListenerAdapter{
     }
 
     public void processMove(String encodeGameState) {
-        curChannel.sendMessage("Next Turn: P" + app.curPlayerNumber + "z" + encodeGameState).queue();
+        privateChannel.sendMessage("$next_turn" + app.getHost() + "->" + encodeGameState).queue();
     }
 
     @Override
     public void onCommandAutoCompleteInteraction(CommandAutoCompleteInteractionEvent event) {
         if (event.getName().equals("host") && event.getFocusedOption().getName().equals("name")) {
             List<Command.Choice> options = Stream.of(GAME_OPTIONS)
-                    .filter(word -> word.startsWith(event.getFocusedOption().getValue())) // only display words that start with the user's current input
+                    .filter(word -> word.startsWith(event.getFocusedOption().getValue())) 
+                    // only display words that start with the user's current input
                     .map(word -> new Command.Choice(word, word)) // map the words to choices
                     .collect(Collectors.toList());
             event.replyChoices(options).queue();

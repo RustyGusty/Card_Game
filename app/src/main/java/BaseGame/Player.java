@@ -53,6 +53,9 @@ public class Player {
         return this.name.equals(name);
     }
 
+    /**
+     * Formats the player as Player #: player_name
+     */
     public String toString() {
         return String.format("Player %d: %s", playerNumber, name);
     }

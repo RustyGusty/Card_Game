@@ -26,6 +26,7 @@ public class App extends PApplet {
     public int curPlayerNumber = 0;
     private int startingPlayerNumber = 0;
     public int minPlayerCount;
+    private String hostName;
 
     /**
      * Float to multiply all widths and heights for differing resolutions based on a
@@ -102,18 +103,27 @@ public class App extends PApplet {
         thisPlayerNumber = 0;
         thisPlayer = new Player(host, numPlayers++);
         playerList.add(thisPlayer);
-        queueGame(game);
+        queueGame(game, host);
         queuedGameHandler.initializeDeck();
         minPlayerCount = queuedGameHandler.minPlayerCount;
     }
 
-    public void queueGame(String game) {
+    public boolean isHost(String host) {
+        return host.equals(this.hostName);
+    }
+
+    public String getHost() {
+        return hostName;
+    }
+
+    public void queueGame(String game, String host) {
+        this.hostName = host;
         switch (game) {
             case "pontinho":
                 queuedGameHandler = new PontinhoHandler(this);
                 break;
             default:
-                System.out.println("Invalid game");
+                new Exception("Invalid game").printStackTrace();
                 exit();
         }
     }
@@ -199,6 +209,10 @@ public class App extends PApplet {
         noLoop();
     }
 
+    /**
+     * Returns the list of the players in playerList split by {@code '\n'}
+     * @return a String of the list of players split by {@code '\n'}
+     */
     public String playerListToString() {
         String res = "";
         for (Player p : playerList) {
@@ -207,6 +221,12 @@ public class App extends PApplet {
         return res;
     }
 
+    /**
+     * Initializes the app's playerList with players given a {@link String} formatted
+     * as in {@link BaseGame.App playerListToString}
+     * @param stringList a String formatted as {@link BaseGame.App playerListToString}
+     * @param user this player's name, used to initialize {@link thisPlayer} and {@link thisPlayerNumber}
+     */
     public void makePlayerList(String stringList, String user) {
         String[] playerNames = stringList.split("\n");
         numPlayers = playerNames.length;
