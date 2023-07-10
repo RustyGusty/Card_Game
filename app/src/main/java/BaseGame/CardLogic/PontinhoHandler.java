@@ -207,10 +207,6 @@ public class PontinhoHandler extends DeckHandler {
                 "app/src/main/resources/discard_pile.png");
 
         textHeader = new Rectangle(0.5f, 0.03f, 0.5f * app.displayWidth, 0.06f * app.displayHeight);
-        int wildcardValue = wildcardRect.get(0).value + 1;
-        if (wildcardValue == 13)
-            wildcardValue = 0;
-        wildcard = new Card(wildcardValue, wildcardRect.get(0).suit);
     }
     
     @Override
@@ -229,6 +225,10 @@ public class PontinhoHandler extends DeckHandler {
 
         wildcardRect.clear();
         wildcardRect.add(DeckHelper.draw(drawRect.cards));
+        int wildcardValue = wildcardRect.get(0).value + 1;
+        if (wildcardValue == 13)
+            wildcardValue = 0;
+        wildcard = new Card(wildcardValue, wildcardRect.get(0).suit);
 
         resetRoundVariables();
         moveableRectangleList = new ArrayList<MultiOutlineRectangle>();
