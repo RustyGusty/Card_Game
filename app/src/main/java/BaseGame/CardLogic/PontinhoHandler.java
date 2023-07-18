@@ -14,6 +14,8 @@ import processing.core.PConstants;
 import processing.core.PImage;
 
 // TODO - Test code efficiency improvements
+// TODO - Display pass status, communicate passes / moves
+// TODO - disable drawing / discarding when out of turn
 public class PontinhoHandler extends DeckHandler {
 
     /** Rectangle containing the draw deck */
@@ -113,12 +115,14 @@ public class PontinhoHandler extends DeckHandler {
     /** Whether or not the picked-up card was a returned card */
     private boolean returnedCardPicked = false;
     /**
-     * The set of all he indices in playerRect that were just picked from the board
+     * The set of all the indices in playerRect that were just picked from the board
      */
     private Set<Integer> returnedCardsIndices = new HashSet<Integer>();
 
     /** Whether or not the discarded card can be drawn */
     private boolean canDrawDiscard;
+    /** Whether or not the user has passed or not */
+    private boolean hasPassed;
     /** Used to display to the user if they need to play cards from hand */
     private boolean illegalDiscard;
     /** Indicates whether or not the player is done making their move */
@@ -467,159 +471,200 @@ public class PontinhoHandler extends DeckHandler {
             indexSet.add(index + dir);
     }
 
-    // TODO Implement out-of-turn drawing from discard pile
-    @Override
-    public boolean handleMouseClick(int mouseX, int mouseY) {
+    private boolean preMoveChecks() {
         // Disables click actions if the turn / round is over
         if (moveMade || winningPlayerNumber != -1)
             return false;
-        illegalDiscard = false;
+        // If you just discarded this card, don't allow anything
         if ((app.thisPlayerNumber + 1) % app.numPlayers == app.curPlayerNumber)
             return false;
-        boolean notMyTurn = app.thisPlayerNumber != app.curPlayerNumber;
-        if (notMyTurn && !canDrawDiscard)
+        // If you've passed on not your turn, disable clicks
+        if (app.thisPlayerNumber != app.curPlayerNumber && hasPassed)
+            return false;
+        
+        // Otherwise proceed as normal
+        return true;
+    }
+
+    // TODO Implement out-of-turn drawing from discard pile
+    @Override
+    public boolean handleMouseClick(int mouseX, int mouseY) {
+        illegalDiscard = false;
+        if(!preMoveChecks())
             return false;
         int selectedCardIndex;
         // Select card from playerRect branch
         if ((selectedCardIndex = playerRect.updateSelect(mouseX, mouseY)) != 0) {
-            // Unselect card
-            if (selectedCardIndex < 0) {
-                selectedCardIndex = -(selectedCardIndex + 1);
-                Card removedCard = playerRect.get(selectedCardIndex);
-                newSetRect.cards.remove(removedCard);
-                updateNewSet();
-            }
-            // Select card
-            else {
-                selectedCardIndex -= 1;
-                Card addedCard = playerRect.get(selectedCardIndex);
-                newSetRect.add(addedCard);
-                updateNewSet();
-            }
+            playerRectSelect(selectedCardIndex);
             return false;
         }
         // Select card from newSetRect branch
         if ((selectedCardIndex = newSetRect.updateSelect(mouseX, mouseY)) != 0) {
-            if (newSetRect.outlinedCardsSet.contains(--selectedCardIndex) || outlinedCardPicked) {
-                if (newSetRect.get(selectedCardIndex).equals(wildcard)) {
-                    returnedCardsIndices.add(playerRect.cards.size());
-                    playerRect.addOutlinedCard(newSetRect.removeCard(selectedCardIndex));
-                    for (int i = newSetRect.cards.size(); i > selectedCardIndex; i--)
-                        shift(newSetRect.outlinedCardsSet, i, -1);
-                }
-            } else {
-                if (firstMove && newSetRect.cards.size() <= 2) {
-                    newSetRect.clear();
-                    playerRect.shownCardsIndices.clear();
-                } else {
-                    Card removedCard = newSetRect.removeCard(selectedCardIndex);
-                    playerRect.shownCardsIndices.remove(playerRect.cards.indexOf(removedCard));
-                }
-            }
-            updateNewSet();
+            newSetSelect(selectedCardIndex);
             return false;
         }
-        // Cancel check
+        // Cancel branch
         if (cancelButtonRect.mouseInRectangle(mouseX, mouseY)) {
-            newSetRect.clear();
-            updateNewSet();
-            playerRect.shownCardsIndices.clear();
-            List<Integer> sortedList = new ArrayList<Integer>(returnedCardsIndices);
-            sortedList.sort(null);
-            for (int i = sortedList.size() - 1; i >= 0; i--)
-                playerRect.removeCard(sortedList.get(i));
-            returnedCardsIndices.clear();
-            selectedRectIndex = -1;
+            cancelBranch();
             return false;
         }
         // New set check
         if (newSetValid && confirmButtonRect.mouseInRectangle(mouseX, mouseY)) {
-            if (!mustEnd && playerRect.outlinedCardsSet.isEmpty())
-                lastValidState = encodeGameState();
-            if (selectedRectIndex == -1) {
-                MultiOutlineRectangle newRect = new MultiOutlineRectangle(
-                        (int) newSetRect.getxCenter(),
-                        (int) newSetRect.getyCenter(), 1,
-                        new ArrayList<Card>(newSetRect.cards),
-                        Mode.REVEALED_ALL);
-                newRect.updatePosition(playArea);
-                moveableRectanglePriorityList.add((Integer) moveableRectangleList.size());
-                moveableRectangleList.add(newRect);
-                if (firstMove && !discardRect.cards.isEmpty())
-                    discardRect.cards.remove(discardRect.cards.size() - 1);
-            } else {
-                setRectList(moveableRectangleList.get(selectedRectIndex), newSetRect.cards);
-                selectedRectIndex = -1;
-            }
-
-            returnedCardsIndices.clear();
-            removeSelectedCards();
-            newSetRect.clear();
-
-            if (tempGameEnd)
-                mustEnd = true;
-            tempGameEnd = false;
-            firstMove = false;
-            updateNewSet();
-            boolean res;
-            if (res = playerRect.cards.isEmpty())
-                resetRoundVariables();
-            clearOutlines();
+            boolean res = newSetConfirm();
             return res;
         }
         // First move draw check
-        if (firstMove) {
-            if (drawRect.mouseInRectangle(mouseX, mouseY)) {
-                newSetRect.clear();
-                playerRect.shownCardsIndices.clear();
-                app.thisPlayer.addFromDeck(drawRect.cards);
-                playerRect.selectCard();
-                playerRect.calculateRectangle();
-                newSetRect.add(playerRect.get(playerRect.cards.size() - 1));
-                updateNewSet();
-                firstMove = false;
-                return false;
-            }
+        if (firstMove && drawRect.mouseInRectangle(mouseX, mouseY)) {
+            drawFirstCard();
+            return false;
         }
         // Discard check
         if (!firstMove && discardMarkerRect.mouseInRectangle(mouseX, mouseY) && newSetRect.cards.size() == 1) {
-            if (mustEnd && playerRect.cards.size() != 1) {
-                return false;
-            }
-            if (!playerRect.outlinedCardsSet.isEmpty()) {
-                illegalDiscard = true;
-                return false;
-            }
-            discardRect.add(newSetRect.get(0));
-            newSetRect.clear();
-            updateNewSet();
-            playerRect.cards.remove((int) playerRect.shownCardsIndices.iterator().next());
-            playerRect.shownCardsIndices.clear();
-            playerRect.calculateRectangle();
-            resetRoundVariables();
-            return true;
+            return discardCard();
         }
         // Select existing set check
         if (selectedRectIndex == -1 && (selectedRectIndex = getMoveableRectangleIndex(mouseX, mouseY)) != -1) {
-            for (Card addedCard : moveableRectangleList.get(selectedRectIndex).cards)
-                newSetRect.addOutlinedCard(addedCard);
-            updateNewSet();
+            selectExistingSet();
             return false;
         }
         // Revert check
         if (lastValidState != null && revertButtonRect.mouseInRectangle(mouseX, mouseY)) {
-            int prevDiscardSize = discardRect.cards.size();
-            decodeGameState(lastValidState);
-            if (discardRect.cards.size() != prevDiscardSize)
-                firstMove = true;
-            playerRect.shownCardsIndices.clear();
-            newSetRect.clear();
-            updateNewSet();
-            mustEnd = false;
-            lastValidState = null;
+            revertState();
             return false;
         }
         return false;
+    }
+
+    private void revertState() {
+        int prevDiscardSize = discardRect.cards.size();
+        decodeGameState(lastValidState);
+        // If the discarded card was drawn as the first card, then reset the firstMove counter
+        if (discardRect.cards.size() != prevDiscardSize)
+            firstMove = true;
+        playerRect.shownCardsIndices.clear();
+        newSetRect.clear();
+        updateNewSet();
+        mustEnd = false;
+        lastValidState = null;
+    }
+
+    private void selectExistingSet() {
+        for (Card addedCard : moveableRectangleList.get(selectedRectIndex).cards)
+            newSetRect.addOutlinedCard(addedCard);
+        updateNewSet();
+    }
+
+    private boolean discardCard() {
+        if (mustEnd && playerRect.cards.size() != 1) {
+            return false;
+        }
+        if (!playerRect.outlinedCardsSet.isEmpty()) {
+            illegalDiscard = true;
+            return false;
+        }
+        discardRect.add(newSetRect.get(0));
+        newSetRect.clear();
+        updateNewSet();
+        playerRect.cards.remove((int) playerRect.shownCardsIndices.iterator().next());
+        playerRect.shownCardsIndices.clear();
+        playerRect.calculateRectangle();
+        resetRoundVariables();
+        return true;
+    }
+
+    private void drawFirstCard() {
+        newSetRect.clear();
+        playerRect.shownCardsIndices.clear();
+        app.thisPlayer.addFromDeck(drawRect.cards);
+        playerRect.selectCard();
+        playerRect.calculateRectangle();
+        newSetRect.add(playerRect.get(playerRect.cards.size() - 1));
+        updateNewSet();
+        firstMove = false;
+    }
+
+    private boolean newSetConfirm() {
+        boolean res;
+        if (!mustEnd && playerRect.outlinedCardsSet.isEmpty())
+            lastValidState = encodeGameState();
+        if (selectedRectIndex == -1) {
+            MultiOutlineRectangle newRect = new MultiOutlineRectangle(
+                    (int) newSetRect.getxCenter(),
+                    (int) newSetRect.getyCenter(), 1,
+                    new ArrayList<Card>(newSetRect.cards),
+                    Mode.REVEALED_ALL);
+            newRect.updatePosition(playArea);
+            moveableRectanglePriorityList.add((Integer) moveableRectangleList.size());
+            moveableRectangleList.add(newRect);
+            if (firstMove && !discardRect.cards.isEmpty())
+                discardRect.cards.remove(discardRect.cards.size() - 1);
+        } else {
+            setRectList(moveableRectangleList.get(selectedRectIndex), newSetRect.cards);
+            selectedRectIndex = -1;
+        }
+
+        returnedCardsIndices.clear();
+        removeSelectedCards();
+        newSetRect.clear();
+
+        if (tempGameEnd)
+            mustEnd = true;
+        tempGameEnd = false;
+        firstMove = false;
+        updateNewSet();
+        if (res = playerRect.cards.isEmpty())
+            resetRoundVariables();
+        clearOutlines();
+        return res;
+    }
+
+    private void cancelBranch() {
+        newSetRect.clear();
+        updateNewSet();
+        playerRect.shownCardsIndices.clear();
+        List<Integer> sortedList = new ArrayList<Integer>(returnedCardsIndices);
+        sortedList.sort(null);
+        for (int i = sortedList.size() - 1; i >= 0; i--)
+            playerRect.removeCard(sortedList.get(i));
+        returnedCardsIndices.clear();
+        selectedRectIndex = -1;
+    }
+
+    private void newSetSelect(int selectedCardIndex) {
+        if (newSetRect.outlinedCardsSet.contains(--selectedCardIndex) || outlinedCardPicked) {
+            if (newSetRect.get(selectedCardIndex).equals(wildcard)) {
+                returnedCardsIndices.add(playerRect.cards.size());
+                playerRect.addOutlinedCard(newSetRect.removeCard(selectedCardIndex));
+                for (int i = newSetRect.cards.size(); i > selectedCardIndex; i--)
+                    shift(newSetRect.outlinedCardsSet, i, -1);
+            }
+        } else {
+            if (firstMove && newSetRect.cards.size() <= 2) {
+                newSetRect.clear();
+                playerRect.shownCardsIndices.clear();
+            } else {
+                Card removedCard = newSetRect.removeCard(selectedCardIndex);
+                playerRect.shownCardsIndices.remove(playerRect.cards.indexOf(removedCard));
+            }
+        }
+        updateNewSet();
+    }
+
+    private void playerRectSelect(int selectedCardIndex) {
+        // Unselect card
+        if (selectedCardIndex < 0) {
+            selectedCardIndex = -(selectedCardIndex + 1);
+            Card removedCard = playerRect.get(selectedCardIndex);
+            newSetRect.cards.remove(removedCard);
+            updateNewSet();
+        }
+        // Select card
+        else {
+            selectedCardIndex -= 1;
+            Card addedCard = playerRect.get(selectedCardIndex);
+            newSetRect.add(addedCard);
+            updateNewSet();
+        }
     }
 
     /** Resets mid-round variables */
@@ -632,13 +677,18 @@ public class PontinhoHandler extends DeckHandler {
         moveMade = false;
         lastValidState = null;
         outlinedRectangle = null;
+        hasPassed = false;
     }
 
-    /** Recalcualtes the newSet rectangle parameters */
+    /** Recalcualtes the newSet rectangle parameters, including the newSetValid variable */
     private void updateNewSet() {
         newSetRect.calculateRectangle();
         newSetRect.updateXPosition(0, 20 * app.scaleFactor, app.displayWidth);
-        newSetValid = setIsValid(newSetRect.cards);
+        // If this is not your turn, then you're only allowed to play a set of 3 cards
+        if(app.thisPlayerNumber != app.curPlayerNumber && newSetRect.cards.size() != 3)
+            newSetValid = false;
+        else
+            newSetValid = setIsValid(newSetRect.cards);
     }
 
     /** Removes selected cards from playerRect */

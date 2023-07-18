@@ -90,7 +90,7 @@ public class DiscordBot extends ListenerAdapter {
                 && event.getChannel().getName().equals("priv-bot-channel")
                 && message.startsWith("$")) {
             message = message.substring(1);
-            if (message.startsWith("next_turn")) {
+            if (message.startsWith("next_move")) {
                 makeMove(message.substring(9));
             } else if (message.startsWith("game_start")) {
                 startNonHostGame(message.substring(10));
@@ -273,8 +273,8 @@ public class DiscordBot extends ListenerAdapter {
         return app.thisPlayerNumber == 0;
     }
 
-    public void processMove(String encodeGameState) {
-        privateChannel.sendMessage("$next_turn" + app.getHost() + "->" + encodeGameState).queue();
+    public void processMove(String encodedMove) {
+        privateChannel.sendMessage("$next_move" + app.getHost() + "->" + encodedMove).queue();
     }
 
     @Override
