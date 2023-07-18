@@ -171,6 +171,12 @@ public class DiscordBot extends ListenerAdapter {
                 event.reply("You are not a host!").setEphemeral(true).queue();
                 return;
             }
+            // Enable 1-player testing
+            if (app.numPlayers == 1) {
+                event.reply("1-player testing mode started by " + user).queue();
+                app.startTest();
+                return;
+            }
             if (app.numPlayers <= 1) {
                 event.reply(String.format("Need %d+ players to start. Currently have: %d",
                         app.minPlayerCount, app.numPlayers)).setEphemeral(true).queue();

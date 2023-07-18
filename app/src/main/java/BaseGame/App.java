@@ -282,4 +282,11 @@ public class App extends PApplet {
         curGameHandler.setup();
         loop();
     }
+
+    public void startTest() {
+        for(int i = numPlayers; i < minPlayerCount; i++) {
+            addPlayer(String.format("Bot %d", i));
+        }
+        startGame(queuedGameHandler.startingDeck);
+    }
 }

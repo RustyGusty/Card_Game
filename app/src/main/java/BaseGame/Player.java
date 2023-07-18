@@ -8,6 +8,11 @@ import BaseGame.Cards.*;
 public class Player {
     public int playerNumber;
     private String name;
+    
+    public String getName() {
+        return name;
+    }
+
     public final List<Card> hand;
     private int score;
 

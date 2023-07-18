@@ -15,7 +15,6 @@ import processing.core.PImage;
 
 // TODO - Test code efficiency improvements
 // TODO - Display pass status, communicate passes / moves
-// TODO - disable drawing / discarding when out of turn
 public class PontinhoHandler extends DeckHandler {
 
     /** Rectangle containing the draw deck */
@@ -164,20 +163,9 @@ public class PontinhoHandler extends DeckHandler {
                 app.displayHeight - (int) (1.1 * app.defaultHeight),
                 1.5f, app.thisPlayer.hand, Mode.REVEALED_SELECT);
         
-        wildcardRect = new CardRectangle(0.5f, 0.15f, 1.5f, new ArrayList<Card>(), Mode.REVEALED_SINGLE);
-        
-        otherPlayerRect = new MultiCardRectangle[app.numPlayers - 1];
-        int index = 0;
-        for (int i = 0; i < app.numPlayers; i++) {
-            if (i == app.thisPlayerNumber)
-                continue;
-            otherPlayerRect[index] = new MultiCardRectangle((int) (0.1 * app.displayWidth),
-                    (int) (app.displayHeight - app.defaultHeight * (0.6 * index + 0.45)),
-                    0.5f, app.playerList.get(i).hand, Mode.FLIPPED_ALL);
-            index++;
-        }
+        wildcardRect = new CardRectangle(0.5f, 0.15f, 1.2f, new ArrayList<Card>(), Mode.REVEALED_SINGLE);
 
-        float height = app.defaultHeight * 0.6f * ((app.numPlayers - 1) + 0.4f);
+        float height = app.defaultHeight * 2.5f;
         otherPlayerDisplay = new Rectangle((int) (app.displayWidth * 0.15f), (int) (app.displayHeight - height / 2),
                 (int) (app.displayWidth * 0.3f), (int) height);
         int playHeight = (int) Math.min(app.displayHeight - height, app.displayHeight - playerRect.getHeight() * 1.5);
@@ -206,8 +194,8 @@ public class PontinhoHandler extends DeckHandler {
                 (int) (app.displayHeight - 44 * app.scaleFactor), 120 * app.scaleFactor, 44 * app.scaleFactor,
                 "app/src/main/resources/Button/unpressed_revert.png");
 
-        discardRect = new CardRectangle(0.65f, 0.23f, 1.4f, new ArrayList<Card>(), Mode.REVEALED_SINGLE);
-        discardMarkerRect = new PictureRectangle(0.65f, 0.2f, 126 * app.scaleFactor, 202 * app.scaleFactor,
+        discardRect = new CardRectangle(0.65f, 0.26f, 1.2f, new ArrayList<Card>(), Mode.REVEALED_SINGLE);
+        discardMarkerRect = new PictureRectangle(0.65f, 0.27f, 143 * app.scaleFactor, 231 * app.scaleFactor,
                 "app/src/main/resources/discard_pile.png");
 
         textHeader = new Rectangle(0.5f, 0.03f, 0.5f * app.displayWidth, 0.06f * app.displayHeight);
@@ -215,6 +203,17 @@ public class PontinhoHandler extends DeckHandler {
     
     @Override
     public void setup() {
+        otherPlayerRect = new MultiCardRectangle[app.numPlayers - 1];
+        int index = 0;
+        for (int i = 0; i < app.numPlayers; i++) {
+            if (i == app.thisPlayerNumber)
+                continue;
+            otherPlayerRect[index] = new MultiCardRectangle((int) (0.1 * app.displayWidth),
+                    (int) (app.displayHeight - app.defaultHeight * (0.6 * index + 0.45)),
+                    0.5f, app.playerList.get(i).hand, Mode.FLIPPED_ALL);
+            index++;
+        }
+
         int iterations = 0;
         for(int i = 0; iterations < 3; i++) {
             app.playerList.get((app.curPlayerNumber + i) % app.numPlayers).addFromDeck(drawRect.cards, 3);
@@ -513,6 +512,9 @@ public class PontinhoHandler extends DeckHandler {
             boolean res = newSetConfirm();
             return res;
         }
+        // Disable non-player moves after this point
+        if (app.curPlayerNumber != app.thisPlayerNumber)
+            return false;
         // First move draw check
         if (firstMove && drawRect.mouseInRectangle(mouseX, mouseY)) {
             drawFirstCard();
@@ -774,7 +776,7 @@ public class PontinhoHandler extends DeckHandler {
                 otherPlayerRect[i].draw();
                 if (i == app.thisPlayerNumber)
                     curPlayerPassed = 1;
-                String toPrint = app.playerList.get(i + curPlayerPassed).toString();
+                String toPrint = app.playerList.get(i + curPlayerPassed).getName();
                 if (i + curPlayerPassed == app.curPlayerNumber)
                     toPrint += " <-";
                 app.text(toPrint, app.displayWidth * 0.2f, otherPlayerRect[i].getyTop() + 0.01f * app.displayHeight,
