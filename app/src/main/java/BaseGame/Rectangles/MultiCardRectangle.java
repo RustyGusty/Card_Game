@@ -12,7 +12,7 @@ import BaseGame.Cards.Card;
  */
 public class MultiCardRectangle extends CardRectangle{
 
-    public Set<Integer> shownCardsIndices; 
+    public Set<Integer> selectedCardsIndices; 
 
     public float hSpacing;
     public float vSpacing;
@@ -48,7 +48,7 @@ public class MultiCardRectangle extends CardRectangle{
      */
     public MultiCardRectangle(int xCenter, int yCenter, float scale, List<Card> deck, Mode drawMode){
         super(xCenter, yCenter, scale, deck, drawMode);
-        this.shownCardsIndices = new HashSet<Integer>();
+        this.selectedCardsIndices = new HashSet<Integer>();
         this.hSpacing = app.defaultHSpacing * scale;
         this.vSpacing = app.defaultVSpacing * scale;
 
@@ -115,7 +115,7 @@ public class MultiCardRectangle extends CardRectangle{
     private void drawMultiSelect() {
         for(int i = 0; i < cards.size(); i++){
             if(i == hiddenCardIndex) return;
-            int offset = shownCardsIndices.contains(i) ? (int) vSpacing : 0;
+            int offset = selectedCardsIndices.contains(i) ? (int) vSpacing : 0;
             app.image(app.imageList[cards.get(i).hashCode()], xLeft + i * hSpacing, yTop - offset, defaultWidth, defaultHeight);
         }
     }
@@ -138,9 +138,9 @@ public class MultiCardRectangle extends CardRectangle{
     public int updateSelect(int mouseX, int mouseY) {
         int res = selectCard(mouseX, mouseY);
         if(res > 0)
-            shownCardsIndices.add((Integer) res - 1);
+            selectedCardsIndices.add((Integer) res - 1);
         else if (res < 0)
-            shownCardsIndices.remove((Integer) (-res - 1));
+            selectedCardsIndices.remove((Integer) (-res - 1));
         return res;
     }
 
@@ -177,7 +177,7 @@ public class MultiCardRectangle extends CardRectangle{
         if(!mouseInRectangle(mouseX, mouseY)){
             if(!topHalfClicked) return 0;
             int largestSelect = 1;
-            for(Integer curIndex : shownCardsIndices) {
+            for(Integer curIndex : selectedCardsIndices) {
                 if(Math.abs(xIndex - 2 - curIndex) <= 2)
                     largestSelect = -(curIndex + 1);
             }
@@ -185,7 +185,7 @@ public class MultiCardRectangle extends CardRectangle{
         } else {
             for(int i = cards.size() - 1; i >= 0; i--)
                 if(Math.abs(xIndex - 2 - i) <= 2) {
-                    if(shownCardsIndices.contains(i)){
+                    if(selectedCardsIndices.contains(i)){
                         if(!topHalfClicked) 
                             continue;
                         else {
@@ -204,16 +204,16 @@ public class MultiCardRectangle extends CardRectangle{
      * Selects the last card in this hand
      */
     public void selectCard(){
-        shownCardsIndices.add(Integer.valueOf(cards.size() - 1));
+        selectedCardsIndices.add(Integer.valueOf(cards.size() - 1));
     }
 
     public float getVerticalOffset(int index) {
-        return shownCardsIndices.contains(index) ? vSpacing : 0;
+        return selectedCardsIndices.contains(index) ? vSpacing : 0;
     }
 
     @Override
     public void clear() {
-        shownCardsIndices.clear();
+        selectedCardsIndices.clear();
         cards.clear();
     }
 }
