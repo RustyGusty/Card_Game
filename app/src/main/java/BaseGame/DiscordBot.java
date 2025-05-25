@@ -77,6 +77,12 @@ public class DiscordBot extends ListenerAdapter {
         }
     }
 
+    public static void setName(String name) {
+        String oldName = user;
+        user = name;
+        System.out.println("User " + oldName + " changed their name to " + user);
+    }
+
     @Override
     public void onReady(ReadyEvent event) {
         app.bot = this;

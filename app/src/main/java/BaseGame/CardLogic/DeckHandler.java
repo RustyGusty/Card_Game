@@ -93,6 +93,13 @@ public abstract class DeckHandler {
     public abstract void handleMouseRelease(int mouseX, int mouseY);
     
     /**
+     * Handles whatever should happen when a key is pressed
+     * @param keyCode The key code of the pressed key
+     * @param keyChar The character of the pressed key
+     */
+    public abstract void handleKeyTyped(char keyChar);
+
+    /**
      * Defines the layout of the board and where everything is drawn
      */
     public abstract void draw();

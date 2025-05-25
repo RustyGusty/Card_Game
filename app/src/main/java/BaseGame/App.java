@@ -18,7 +18,7 @@ import processing.core.PImage;
 
 public class App extends PApplet {
 
-    public DeckHandler curGameHandler = new HomePage(this);
+    public DeckHandler curGameHandler;
     private DeckHandler queuedGameHandler;
     public int numPlayers = 0;
     /** 0 for the host, -1 for an uninitialized player */
@@ -89,6 +89,7 @@ public class App extends PApplet {
         imageList[13 * 4 + 2] = loadImage("app/src/main/resources/Poker Cards PNG/card_back_red.png");
         imageList[13 * 4] = loadImage("app/src/main/resources/Poker Cards PNG/red_joker.png");
         imageList[13 * 4 + 1] = loadImage("app/src/main/resources/Poker Cards PNG/black_joker.png");
+        /*
         try {
             String user = new String(Files.readAllBytes(Paths.get("misc/username.txt")), StandardCharsets.UTF_8).trim();
             DiscordBot.initializeBot(this, user);
@@ -97,6 +98,9 @@ public class App extends PApplet {
             exit();
             System.exit(1);
         }
+        */
+
+        curGameHandler = new HomePage(this);
     }
 
     public void hostGame(String host, String game) {
@@ -186,11 +190,16 @@ public class App extends PApplet {
     public void mouseDragged() {
         curGameHandler.handleMouseDrag(mouseX, mouseY);
     }
-
+    
     @Override
     public void draw() {
         background(0, 150, 0);
         curGameHandler.draw();
+    }
+
+    @Override
+    public void keyTyped() {
+        curGameHandler.handleKeyTyped(key);
     }
 
     public static void main(String[] args) {

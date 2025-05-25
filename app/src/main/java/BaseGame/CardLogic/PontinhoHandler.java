@@ -1191,6 +1191,12 @@ public class PontinhoHandler extends DeckHandler {
             mor.outlinedCardsSet.clear();
         outlinedRectangle = null;
     }
+
+    @Override
+    public void handleKeyTyped(char keyChar) {
+        // Ignore key presses for now
+        return;    
+    }
 }
 
 class MultiOutlineRectangle extends MultiCardRectangle {
