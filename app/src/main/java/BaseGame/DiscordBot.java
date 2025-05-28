@@ -101,10 +101,41 @@ public class DiscordBot extends ListenerAdapter {
             } else if (message.startsWith("game_start")) {
                 startNonHostGame(message.substring(10));
             } else if (message.startsWith("new_round")) {
-                startNextRound(message);
+                startNextRound(message.substring(9));
+            } else if (message.startsWith("add_player")) {
+                addPlayerManually(message.substring(10));
+            } else if (message.startsWith("host_game")) {
+                checkHost(message.substring(9));
             }
             return;
         }
+    }
+
+    private void checkHost(String message) {
+        String args[] = message.split("->"); // [host]
+        // If this user is not the host, and this user is waiting for a game, then update the host name to request entry into the game
+        if (!args[0].equals(user)) {
+            if( app.waitingForGame() ) {
+                app.requestEntry(args[0]);
+            }
+        }
+    }
+
+    private void addPlayerManually(String message) {
+        String args[] = message.split("->"); // [host, player name]
+        //System.out.println("Adding player " + args[1] + " to host " + args[0]);
+        if (args[1].equals(user)) { // If this is the sender of the message, queue the game
+            if (app.waitingForGame()) {
+                currentGame = "pontinho";
+                app.queueGame(currentGame, args[0]);
+            }
+        } else if (app.isHost(args[0])) { // If this is the host, add the player to the list
+            app.addPlayer(args[1]);
+        }
+    }
+
+    public void sendBotMessage(String message) {
+        privateChannel.sendMessage(message).queue();
     }
 
     // USERNAME->ID->Player\nList
@@ -133,9 +164,11 @@ public class DiscordBot extends ListenerAdapter {
     public void onButtonInteraction(ButtonInteractionEvent event) {
         String args[] = event.getComponentId().split(":");
         String host = args[0];
+        String userName = event.getUser().getName();
+
         // Joiner branch: Set up the correct DeckHandler
         if (!host.equals(user)) {
-            if (event.getUser().getName().equals(user)) {
+            if (userName.equals(user)) {
                 if (app.waitingForGame()) {
                     currentGame = args[1];
                     app.queueGame(currentGame, host);
@@ -235,7 +268,6 @@ public class DiscordBot extends ListenerAdapter {
      * @param game
      */
     private void hostGame(SlashCommandInteractionEvent event) {
-
         if (event.getUser().getName().equals(user)) {
             String game = event.getOption("name").getAsString().toLowerCase();
             currentGame = null;
@@ -253,6 +285,9 @@ public class DiscordBot extends ListenerAdapter {
             event.reply(user + " has hosted a game!")
                     .addActionRow(Button.primary(String.format("%s:%s", user, currentGame), "Join game!"))
                     .queue();
+            privateChannel.sendMessage(String.format("$host_game%s", user)).queue();
+        } else {
+
         }
     }
 
@@ -285,13 +320,19 @@ public class DiscordBot extends ListenerAdapter {
         return app.thisPlayerNumber == 0;
     }
 
+    public String getUser() {
+        return user;
+    }
+
     public void processMove(String encodedMove) {
         privateChannel.sendMessage("$next_move" + app.getHost() + "->" + encodedMove).queue();
     }
 
     @Override
     public void onCommandAutoCompleteInteraction(CommandAutoCompleteInteractionEvent event) {
-        if (event.getName().equals("host") && event.getFocusedOption().getName().equals("name")) {
+        if (event.getUser().getName().equals(user)
+            && event.getName().equals("host")
+            && event.getFocusedOption().getName().equals("name")) {
             List<Command.Choice> options = Stream.of(GAME_OPTIONS)
                     .filter(word -> word.startsWith(event.getFocusedOption().getValue())) 
                     // only display words that start with the user's current input

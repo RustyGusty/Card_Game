@@ -9,6 +9,8 @@
 plugins {
     // Apply the application plugin to add support for building a CLI application in Java.
     id 'application'
+    // Apply the Java plugin to add support for Java.
+    id 'java-library'
 }
 
 repositories {
@@ -38,4 +40,30 @@ application {
 tasks.named('test') {
     // Use JUnit Platform for unit tests.
     useJUnitPlatform()
+}
+
+jar {
+    // Add the main class to the manifest file.
+    manifest {
+        attributes(
+                'Main-Class': application.mainClass
+        )
+    }
+
+    // Include all classes in the JAR file.
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+}
+
+java {
+    toolchain {
+        // Use Java 18 for compiling the project.
+        languageVersion = JavaLanguageVersion.of(18)
+    }
+}
+
+// Use duplicates strategy exclude
+tasks.withType(Jar) {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }

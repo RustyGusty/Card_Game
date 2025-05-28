@@ -172,10 +172,8 @@ public class PontinhoHandler extends DeckHandler {
 
     @Override
     public void initializeDeck(String startingDeck) {
-        if (this.startingDeck == null) {
-            this.startingDeck = startingDeck;
-            drawRect = new CardRectangle(0.5f, 0.25f, 1.5f, decodeStartingDeck(startingDeck), Mode.FLIPPED_SINGLE);
-        }
+        this.startingDeck = startingDeck;
+        drawRect = new CardRectangle(0.5f, 0.25f, 1.5f, decodeStartingDeck(startingDeck), Mode.FLIPPED_SINGLE);
     }
 
     /** Places all rectangles in their appropriate positions on initial startup */
@@ -230,13 +228,18 @@ public class PontinhoHandler extends DeckHandler {
         for (int i = 0; i < app.numPlayers; i++) {
             if (i == app.thisPlayerNumber)
                 continue;
-            otherPlayerRect[index] = new MultiCardRectangle((int) (0.1 * app.displayWidth),
+            otherPlayerRect[index] = new MultiCardRectangle((int) (0.05 * app.displayWidth),
                     (int) (app.displayHeight - app.defaultHeight * (0.6 * index + 0.45)),
                     0.5f, app.playerList.get(i).hand, Mode.FLIPPED_ALL);
             index++;
         }
 
         int iterations = 0;
+        // Clear all players' hands
+        for (Player p : app.playerList) {
+            p.hand.clear();
+        }
+        
         for(int i = 0; iterations < 3; i++) {
             app.playerList.get((app.curPlayerNumber + i) % app.numPlayers).addFromDeck(drawRect.cards, 3);
             if (i >= app.numPlayers - 1) {
@@ -248,12 +251,16 @@ public class PontinhoHandler extends DeckHandler {
         for (Player p : app.playerList)
             Collections.sort(p.hand);
 
+        Card wildcardRectCard = DeckHelper.draw(drawRect.cards);
         wildcardRect.clear();
-        wildcardRect.add(DeckHelper.draw(drawRect.cards));
+        wildcardRect.add(wildcardRectCard);
         int wildcardValue = wildcardRect.get(0).value + 1;
         if (wildcardValue == 13)
             wildcardValue = 0;
         wildcard = new Card(wildcardValue, wildcardRect.get(0).suit);
+        
+        // Add the wildcard to the discard pile
+        discardRect.add(wildcardRectCard);
 
         resetRoundVariables();
         moveableRectangleList = new ArrayList<MultiOutlineRectangle>();
@@ -865,12 +872,6 @@ public class PontinhoHandler extends DeckHandler {
             String printText;
             if (timedText.isRunning())
                 printText = timedText.HEADER_TEXT;
-            else if (app.curPlayerNumber != app.thisPlayerNumber) {
-                if (!hasPassed)
-                    printText = "Use the discarded card or pass the turn!";
-                else
-                    printText = "Waiting...";
-            }  
             else if (winningPlayerNumber == app.thisPlayerNumber)
                 printText = "You won the round! Total points: " + app.thisPlayer.getScore();
             else if (winningPlayerNumber != -1)
@@ -881,6 +882,12 @@ public class PontinhoHandler extends DeckHandler {
                             app.playerList.get(winningPlayerNumber).toString(),
                             roundScore,
                             app.thisPlayer.getScore());
+            else if (app.curPlayerNumber != app.thisPlayerNumber) {
+                if (!hasPassed)
+                    printText = "Use the discarded card or pass the turn!";
+                else
+                    printText = "Waiting...";
+            }  
             else if (firstMove)
                 printText = "Your turn: Draw a card from the draw or use the discarded card";
             else if (mustEnd)
@@ -910,10 +917,11 @@ public class PontinhoHandler extends DeckHandler {
                 otherPlayerRect[i].draw();
                 if (i == app.thisPlayerNumber)
                     curPlayerPassed = 1;
-                String toPrint = app.playerList.get(i + curPlayerPassed).getName();
+                Player p = app.playerList.get(i + curPlayerPassed);
+                String toPrint = p.getName() + " (" + p.getScore() + " points): ";
                 if (i + curPlayerPassed == app.curPlayerNumber)
                     toPrint += " <-";
-                app.text(toPrint, app.displayWidth * 0.2f, otherPlayerRect[i].getyTop() + 0.01f * app.displayHeight,
+                app.text(toPrint, app.displayWidth * 0.17f, otherPlayerRect[i].getyTop() + 0.01f * app.displayHeight,
                         app.displayWidth * 0.1f, app.defaultHeight);
             }
         } else {
@@ -998,8 +1006,9 @@ public class PontinhoHandler extends DeckHandler {
         String[] strLists = boardState.split("t", -1);
         // Updated player number
         int updatedPlayerNum = Integer.parseInt(strLists[0], 16);
-        if (updatedPlayerNum == app.thisPlayerNumber)
+        if (updatedPlayerNum == app.thisPlayerNumber) {
             canDrawDiscard = false;
+        }
         // Size of draw deck
         int drawDeckSize = Integer.parseInt(strLists[1], 16);
         if (drawDeckSize < drawRect.cards.size()) {
@@ -1024,7 +1033,6 @@ public class PontinhoHandler extends DeckHandler {
             Card c = Card.toCard(Integer.parseInt(strLists[3], 16));
             if (discardRect.cards.size() <= 0) 
                 discardRect.add(c);
-            
             else {
                 discardRect.cards.set(0, c);
                 outlinedRectangle = discardRect;
@@ -1047,6 +1055,10 @@ public class PontinhoHandler extends DeckHandler {
                 }
             }
         }
+        if (updatedPlayerNum != app.thisPlayerNumber) {
+            newSetRect.addOutlinedCard(discardRect.getCardFromTop(0));
+        }
+
         // All played sets
         int rectInd = 0;
         while (rectInd < strLists.length - 2) {
@@ -1142,7 +1154,6 @@ public class PontinhoHandler extends DeckHandler {
             return;
         }
         decodeGameState(boardState);
-        newSetRect.addOutlinedCard(discardRect.getCardFromTop(0));
         updateNewSet();
         resetRoundVariables();
     }

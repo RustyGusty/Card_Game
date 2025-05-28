@@ -20,13 +20,14 @@ public class App extends PApplet {
 
     public DeckHandler curGameHandler;
     private DeckHandler queuedGameHandler;
+    private HomePage homePage;
     public int numPlayers = 0;
     /** 0 for the host, -1 for an uninitialized player */
     public int thisPlayerNumber = -1;
     public int curPlayerNumber = 0;
     private int startingPlayerNumber = 0;
     public int minPlayerCount;
-    private String hostName;
+    private String hostName = "";
 
     /**
      * Float to multiply all widths and heights for differing resolutions based on a
@@ -99,8 +100,8 @@ public class App extends PApplet {
             System.exit(1);
         }
         */
-
-        curGameHandler = new HomePage(this);
+        homePage = new HomePage(this);
+        curGameHandler = homePage;
     }
 
     public void hostGame(String host, String game) {
@@ -110,6 +111,7 @@ public class App extends PApplet {
         queueGame(game, host);
         queuedGameHandler.initializeDeck();
         minPlayerCount = queuedGameHandler.minPlayerCount;
+        
     }
 
     public boolean isHost(String host) {
@@ -120,8 +122,14 @@ public class App extends PApplet {
         return hostName;
     }
 
+    public void requestEntry(String game_host) {
+        this.hostName = game_host;
+    }
+
     public void queueGame(String game, String host) {
         this.hostName = host;
+        if (thisPlayer == null)
+            thisPlayer = new Player(bot.getUser(), -1);
         switch (game) {
             case "pontinho":
                 queuedGameHandler = new PontinhoHandler(this);
@@ -241,10 +249,13 @@ public class App extends PApplet {
         numPlayers = playerNames.length;
         for (int i = 0; i < numPlayers; i++) {
             String name = playerNames[i].substring(10);
-            playerList.add(new Player(name, i));
-            if (playerList.get(i).isPlayer(user)) {
+            if (thisPlayer.isPlayer(name)) {
+                // If this is the current user, then rather than adding a new player, use the existing one
                 thisPlayerNumber = i;
-                thisPlayer = playerList.get(i);
+                thisPlayer.playerNumber = i;
+                playerList.add(thisPlayer);
+            } else {
+                playerList.add(new Player(name, i));
             }
         }
     }

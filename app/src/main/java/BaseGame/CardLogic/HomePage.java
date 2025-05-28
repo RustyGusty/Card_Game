@@ -16,11 +16,9 @@ import processing.core.PConstants;
 // TODO - implement rules page
 public class HomePage extends DeckHandler {
 
-    private PictureRectangle confirmButton;
-    private Rectangle userNameRect;
     private String currentName;
     private String textFieldText;
-    private boolean isNameValid = false;
+    private int textFieldIndex; // 0 = Enter name, 1 = Waiting for host, 2 = Waiting for confirmation, 3 = Game ready
 
     private boolean specialKeysList[] = new boolean[256];
     private static final Set<Integer> IGNORED_KEYS = new HashSet<Integer>() {{
@@ -39,10 +37,9 @@ public class HomePage extends DeckHandler {
 
     @Override
     public void setup() {
-        confirmButton = new PictureRectangle(0.9f, 0.9f, 120 * app.scaleFactor, 44 * app.scaleFactor, "app/src/main/resources/Button/unpressed_confirm.png");
-        userNameRect = new Rectangle(0.5f, 0.9f, 400, 50);
         currentName = "";
         textFieldText = "";
+        textFieldIndex = 0;
         try {
             String test = new String(Files.readAllBytes(Paths.get("misc/username.txt")), StandardCharsets.UTF_8).trim();
             if (!test.isEmpty()) {
@@ -80,17 +77,30 @@ public class HomePage extends DeckHandler {
     public void draw() {
         app.textSize(50f);
         app.color(255);
-        String text = (isNameValid) ?
-            ((app.waitingForGame()) 
-                ? "Go to discord to join or host a game!"
-                : "Waiting for host to start game")
-            : "Your Name: " + textFieldText;
         app.textAlign(PConstants.CENTER);
-        app.text(text, 0.5f * app.displayWidth, 0.5f * app.displayHeight);
 
         if(!currentName.isEmpty()) {
-            text = "Hello " + currentName + "!";
-            app.text(text, 0.5f * app.displayWidth, 0.3f * app.displayHeight);
+            app.text("Hello " + currentName + "!", 0.5f * app.displayWidth, 0.3f * app.displayHeight);
+        }
+        switch (textFieldIndex) {
+            case 0:
+                app.text("Enter your name: " + textFieldText, 0.5f * app.displayWidth, 0.5f * app.displayHeight);
+                break;
+            case 1:
+                if (app.getHost().isEmpty()) {
+                    app.text("Go to discord to join or host a game!", 0.5f * app.displayWidth, 0.5f * app.displayHeight);
+                    break;
+                } else {
+                    if(app.waitingForGame()) {
+                        app.text("User " + app.getHost() + " has started a game!\nPress Enter to join!", 0.5f * app.displayWidth, 0.5f * app.displayHeight);
+                        break;
+                    } else {
+                        textFieldIndex = 2; // Move to next state once you've joined a game, don't break in order to fall through to the next case
+                    }
+                }
+            case 2:
+                app.text("Waiting for " + app.getHost() + " to start!", 0.5f * app.displayWidth, 0.5f * app.displayHeight);
+                break;
         }
     }
 
@@ -114,18 +124,26 @@ public class HomePage extends DeckHandler {
                 textFieldText = textFieldText.substring(0, textFieldText.length() - 1);
             }
         } else if (keyChar == App.ENTER) {
-            if (isNameValid = checkNameValidity()) {
-                if (currentName.isEmpty()) {
-                    currentName = textFieldText;
-                    DiscordBot.initializeBot(app, currentName);
-                    try {
-                        Files.write(Paths.get("misc/username.txt"), currentName.getBytes(StandardCharsets.UTF_8));
-                    } catch (Exception e) {
-                        e.printStackTrace();
+            if (currentName.isEmpty()) {
+                if (checkNameValidity()) {
+                    if (currentName.isEmpty()) {
+                        currentName = textFieldText;
+                        DiscordBot.initializeBot(app, currentName);
+                        try {
+                            Files.write(Paths.get("misc/username.txt"), currentName.getBytes(StandardCharsets.UTF_8));
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                        textFieldIndex = 1;
                     }
+                } else {
+                    System.out.println("Invalid name");
                 }
             } else {
-                System.out.println("Invalid name");
+                if (textFieldIndex == 1 && !app.getHost().isEmpty()) {
+                    app.bot.sendBotMessage("$add_player" + app.getHost() + "->" + currentName);
+                    textFieldIndex = 2;
+                }
             }
         }
         else if (textFieldText.length() < 30) {
